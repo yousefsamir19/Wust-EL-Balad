@@ -26,6 +26,8 @@ Checks: `npm run typecheck`, `npm run lint`, `npm test`.
 ## Progress and rules
 
 - Task 01: runnable React/Vite/Tailwind + Express/TypeScript foundation, shared health contract, environment template, and CI. Simulation and gameplay are not implemented yet.
+- Task 02: versioned SQLite migrations and ten seeded Cairo citizens, buildings, directed relationships, and private initial knowledge. `GET /api/world/summary` returns a safe public summary.
+- `DATABASE_URL` defaults to `file:./data/world.db`. Startup creates the database once and reopens it without reseeding. Amounts in storage are integer piastres (100 piastres = 1 EGP). Keep the `data` directory on durable storage; do not copy an active WAL database for backups.
 - AI-to-AI dialogue will appear in each participant's Character Chat. Interrogation uses only that citizen's observations, received information, or beliefs.
 - Rumors require all registered, non-banned players to approve, with a 24-real-hour timeout.
 - Simulation time does not advance while the server is off.
