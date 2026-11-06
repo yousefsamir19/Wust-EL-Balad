@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { ArchiveEvent, NewsLabel } from '../../../shared/archives.js';
 import type { WorldDatabase } from '../db/index.js';
+import { captureInvestigationTruth } from '../investigations/truth.js';
 
 const GAME_DAY_MS = 86400000;
 
@@ -86,6 +87,7 @@ function projectRows(db: WorldDatabase, day: number): ArchiveEvent[] {
 }
 
 export function captureDaySources(db: WorldDatabase, day: number, closedGameMs: number): void {
+  captureInvestigationTruth(db,day,closedGameMs);
   const existing = db.prepare('SELECT day FROM chronicle_sources WHERE day=?').get(day) as { day: number } | undefined;
   if (existing) return;
   const events = projectRows(db, day);

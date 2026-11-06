@@ -224,6 +224,10 @@ CREATE TABLE interrogations (id TEXT PRIMARY KEY,player_id TEXT NOT NULL REFEREN
 CREATE INDEX interrogations_player_citizen ON interrogations(player_id,citizen_id,created_at);
 ` }, {version:9,sql:`
 CREATE TABLE chronicle_sources(day INTEGER PRIMARY KEY REFERENCES closed_days(day),closed_game_ms INTEGER NOT NULL,snapshot_hash TEXT NOT NULL,events TEXT NOT NULL CHECK(json_valid(events)));
+` }, {version:10,sql:`
+CREATE TABLE investigation_truth(day INTEGER PRIMARY KEY REFERENCES closed_days(day),closed_game_ms INTEGER NOT NULL,facts TEXT NOT NULL CHECK(json_valid(facts)),snapshot_hash TEXT NOT NULL);
+ALTER TABLE investigations ADD COLUMN created_at TEXT;
+ALTER TABLE investigations ADD COLUMN completed_game_ms INTEGER;
 ` }];
 
 export function migrate(db: Database.Database) {

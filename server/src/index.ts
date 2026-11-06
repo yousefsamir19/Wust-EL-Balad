@@ -9,6 +9,7 @@ import { RuntimeAiSettings } from './ai/settings.js';
 import { attachCitizenReasoning } from './citizens/reasoning.js';
 import { InterrogationService } from './interrogation/service.js';
 import { Chronicler } from './archives/chronicler.js';
+import { InvestigationService } from './investigations/service.js';
 
 const port = Number(process.env.PORT ?? 3000);
 if (!Number.isInteger(port) || port < 1 || port > 65535) {
@@ -20,7 +21,8 @@ const aiSettings=new RuntimeAiSettings(db,ai);
 const clock = new SimulationClock(db, { onError: (error) => { console.error(error.message); shutdown(1); } });
 const interrogation=new InterrogationService(db,clock,ai);
 const chronicler=new Chronicler(db,clock,ai);
-const server = createApp(undefined, db,ai,aiSettings,{clock,interrogation}).listen(port, process.env.HOST ?? '0.0.0.0', () => {
+const investigations=new InvestigationService(db,clock,ai);
+const server = createApp(undefined, db,ai,aiSettings,{clock,interrogation,investigations}).listen(port, process.env.HOST ?? '0.0.0.0', () => {
   console.log(`Wust El Balad listening on port ${port}`);
   clock.start();
 });
@@ -35,6 +37,7 @@ function shutdown(code: number) {
   reasoning.stop();
   interrogation.stop();
   chronicler.stop();
+  investigations.stop();
   ai.stop();
   clock.stop();
   realtime.close();

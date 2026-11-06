@@ -16,8 +16,10 @@ import type { SimulationClock } from './simulation/clock.js';
 import { interrogationRouter } from './interrogation/routes.js';
 import type { InterrogationService } from './interrogation/service.js';
 import { archivesRouter } from './archives/routes.js';
+import { investigationsRouter } from './investigations/routes.js';
+import type { InvestigationService } from './investigations/service.js';
 
-export function createApp(clientDirectory = resolve('dist/client'), database?: WorldDatabase, ai?:AiScheduler, aiSettings?:RuntimeAiSettings,services:{clock?:SimulationClock;interrogation?:InterrogationService}={}) {
+export function createApp(clientDirectory = resolve('dist/client'), database?: WorldDatabase, ai?:AiScheduler, aiSettings?:RuntimeAiSettings,services:{clock?:SimulationClock;interrogation?:InterrogationService;investigations?:InvestigationService}={}) {
   const app = express();
   app.disable('x-powered-by');
   app.use(express.json({ limit: '16kb' }));
@@ -35,6 +37,7 @@ export function createApp(clientDirectory = resolve('dist/client'), database?: W
     app.use('/api/events',eventStreamRouter(database));
     app.use('/api/interrogations',interrogationRouter(database,services.interrogation));
     app.use('/api/archives',archivesRouter(database));
+    app.use('/api/investigations',investigationsRouter(database,services.investigations));
     if(ai)app.use('/api/admin/ai',aiRouter(database,ai,aiSettings));
   }
   app.use('/api', (_req, res) => { res.status(404).json({ error: 'Not found' }); });
