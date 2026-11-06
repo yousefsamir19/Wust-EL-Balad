@@ -32,7 +32,18 @@ export function streamsRouter(db:WorldDatabase,clock?:SimulationClock){
   router.get('/characters/:id',(req,res)=>{
     if(!db.prepare('SELECT id FROM citizens WHERE id=?').get(req.params.id)){res.status(404).json({error:'Citizen not found'});return;}
     const sql=`SELECT m.id,m.game_time_ms AS gameTimeMs,CAST(m.game_time_ms/86400000 AS INTEGER)+1 AS day,m.speaker_id AS speakerId,s.name AS speakerName,m.recipient_id AS recipientId,r.name AS recipientName,m.text,m.visibility FROM conversations m JOIN citizens s ON s.id=m.speaker_id JOIN citizens r ON r.id=m.recipient_id`;
-    try{res.json(selectPage<CharacterMessage>(db,sql,'(m.speaker_id=? OR m.recipient_id=?)',[req.params.id,req.params.id],pageQuery(req),'m'));}catch{res.status(400).json({error:'Invalid pagination'});}
+    try{
+      const q=pageQuery(req),day=req.query.day;
+      let condition='(m.speaker_id=? OR m.recipient_id=?)',args:unknown[]=[req.params.id,req.params.id];
+      if(day!==undefined){
+        if(typeof day!=='string'||!/^[0-9]+$/.test(day)||!Number.isSafeInteger(Number(day))||Number(day)<1){res.status(400).json({error:'Invalid day'});return;}
+        const selected=Number(day),world=db.prepare('SELECT game_time_ms AS gameTimeMs FROM world WHERE id=1').get() as {gameTimeMs:number};
+        const current=Math.floor(world.gameTimeMs/86400000)+1;
+        if(selected>current){res.status(400).json({error:'Invalid day'});return;}
+        condition+=' AND m.game_time_ms>=? AND m.game_time_ms<?';args=[...args,(selected-1)*86400000,selected*86400000];
+      }
+      res.json(selectPage<CharacterMessage>(db,sql,condition,args,q,'m'));
+    }catch{res.status(400).json({error:'Invalid pagination'});}
   });
   return router;
 }

@@ -6,6 +6,7 @@ import type { SimulationClock } from '../simulation/clock.js';
 import { playerFromRequest } from '../auth/session.js';
 import { projectWorld, publicEvents } from './projection.js';
 import type { WorldDelta } from '../../../shared/realtime.js';
+import { recordVisit,markSeen } from '../catchup/index.js';
 
 export function attachRealtime(server: HttpServer, db: WorldDatabase, clock: SimulationClock) {
   const io = new SocketServer(server, {
@@ -21,6 +22,7 @@ export function attachRealtime(server: HttpServer, db: WorldDatabase, clock: Sim
   let eventCursor = previous.events.at(-1)?.id ?? 0;
   let observerCursor=(db.prepare('SELECT COALESCE(MAX(id),0) n FROM observer_messages').get() as {n:number}).n;
   let characterCursor=(db.prepare('SELECT COALESCE(MAX(id),0) n FROM conversations').get() as {n:number}).n;
+  let seenMinute=-1;
   io.use((socket, next) => {
     const player = playerFromRequest(db, socket.request as Request);
     if (!player) { next(new Error('Login required')); return; }
@@ -28,6 +30,7 @@ export function attachRealtime(server: HttpServer, db: WorldDatabase, clock: Sim
     next();
   });
   io.on('connection', (socket) => {
+    if([...io.sockets.sockets.values()].filter(other=>other.data.playerId===socket.data.playerId).length===1){try{recordVisit(db,socket.data.playerId,clock.state().game_time_ms);}catch{socket.disconnect(true);return;}}
     socket.emit('world:snapshot', projectWorld(db, count()));
     io.emit('world:presence', { playerCount: count() });
     let lastResync = 0;
@@ -38,13 +41,14 @@ export function attachRealtime(server: HttpServer, db: WorldDatabase, clock: Sim
       if (!player) { socket.disconnect(true); return; }
       socket.emit('world:snapshot', projectWorld(db, count()));
     });
-    socket.on('disconnect', () => io.emit('world:presence', { playerCount: count() }));
+    socket.on('disconnect', () => {if(db.open)markSeen(db,[socket.data.playerId],clock.state().game_time_ms);io.emit('world:presence', { playerCount: count() });});
   });
   const unsubscribe = clock.subscribe(() => {
     for (const socket of io.sockets.sockets.values()) {
       if (!playerFromRequest(db, socket.request as Request)) socket.disconnect(true);
     }
     const current = projectWorld(db, count());
+    const minute=Math.floor(current.gameTimeMs/60000);if(minute!==seenMinute){seenMinute=minute;markSeen(db,[...new Set([...io.sockets.sockets.values()].map(socket=>socket.data.playerId as string))],current.gameTimeMs);}
     const byId = new Map(previous.citizens.map((citizen) => [citizen.id, JSON.stringify(citizen)]));
     const events = publicEvents(db, eventCursor, 1000);
     const delta: WorldDelta = {

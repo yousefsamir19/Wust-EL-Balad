@@ -239,6 +239,10 @@ ALTER TABLE rumors ADD COLUMN voter_snapshot TEXT NOT NULL DEFAULT '[]' CHECK(js
 ALTER TABLE rumors ADD COLUMN last_spread_game_ms INTEGER NOT NULL DEFAULT 0;
 CREATE UNIQUE INDEX rumors_one_pending ON rumors(status) WHERE status='pending';
 CREATE TABLE rumor_heard(rumor_id TEXT NOT NULL REFERENCES rumors(id),citizen_id TEXT NOT NULL REFERENCES citizens(id),confidence INTEGER NOT NULL CHECK(confidence BETWEEN 0 AND 100),source_event_id INTEGER NOT NULL REFERENCES events(id),last_shared_game_ms INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(rumor_id,citizen_id));
+` }, {version:13,sql:`
+CREATE TABLE player_visits(id INTEGER PRIMARY KEY AUTOINCREMENT,player_id TEXT NOT NULL REFERENCES players(id),seen_game_ms INTEGER NOT NULL,previous_seen_game_ms INTEGER);
+CREATE TABLE player_returns(player_id TEXT PRIMARY KEY REFERENCES players(id),from_game_ms INTEGER NOT NULL);
+CREATE TABLE player_reviewed_days(player_id TEXT NOT NULL REFERENCES players(id),day INTEGER NOT NULL,PRIMARY KEY(player_id,day));
 ` }];
 
 export function migrate(db: Database.Database) {

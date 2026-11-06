@@ -52,8 +52,10 @@ async function fetchPage<T extends Identified>(
   direction?: 'before' | 'after',
   cursor?: number,
 ): Promise<StreamPage<T>> {
-  const query = direction && cursor !== undefined ? `?${direction}=${encodeURIComponent(String(cursor))}&limit=${PAGE_SIZE}` : `?limit=${PAGE_SIZE}`;
-  const response = await fetch(`${endpoint}${query}`, { signal, credentials: 'same-origin' });
+  const params = new URLSearchParams();
+  if (direction && cursor !== undefined) params.set(direction, String(cursor));
+  params.set('limit', String(PAGE_SIZE));
+  const response = await fetch(`${endpoint}${endpoint.includes('?') ? '&' : '?'}${params.toString()}`, { signal, credentials: 'same-origin' });
   if (!response.ok) throw new Error(errorForResponse(response));
   const parsed = await response.json() as Partial<StreamPage<T>>;
   return {
@@ -382,13 +384,16 @@ export function CharacterChat({
   citizens,
   onCitizenChange,
   revision,
+  day,
 }: {
   citizenId: string;
   citizens: VisibleCitizen[];
   onCitizenChange: (id: string) => void;
   revision: number;
+  day?: number;
 }) {
-  const endpoint = `/api/chats/characters/${encodeURIComponent(citizenId)}`;
+  const dayQuery = Number.isInteger(day) && day !== undefined && day >= 1 ? `?day=${encodeURIComponent(String(day))}` : '';
+  const endpoint = `/api/chats/characters/${encodeURIComponent(citizenId)}${dayQuery}`;
   const stream = useStream<CharacterMessage>(endpoint, revision);
   return <PanelFrame title="Character Chat" subtitle="Recorded utterances involving this citizen" stream={stream}>
     <div className="chat-citizen-picker">

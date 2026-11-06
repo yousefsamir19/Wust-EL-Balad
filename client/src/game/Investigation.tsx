@@ -33,7 +33,7 @@ function isPendingView(view:InvestigationView|null){return view?.status==='pendi
 function percent(accuracy:number){return `${(accuracy<=1?accuracy*100:accuracy).toFixed(0)}%`;}
 function sourceLabel(source:'local'|'network'){return source==='local'?'Local evaluation':'Network evaluation';}
 
-export function Investigation({currentDay}:{currentDay:number}){
+export function Investigation({currentDay,initialDay}:{currentDay:number;initialDay?:number}){
   const inputId=useId();
   const [days,setDays]=useState<InvestigationDay[]>([]);
   const [selectedDay,setSelectedDay]=useState<number|null>(null);
@@ -52,6 +52,7 @@ export function Investigation({currentDay}:{currentDay:number}){
   const actions=useRef<Record<number,Action|undefined>>({});
   const postRef=useRef<{day:number;controller:AbortController}|null>(null);
   const pollTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
+  const previousInitialDay=useRef(initialDay);
   selectedDayRef.current=selectedDay;
 
   const eligibleDays=days.filter(day=>day.day<currentDay).sort((a,b)=>b.day-a.day);
@@ -96,7 +97,8 @@ export function Investigation({currentDay}:{currentDay:number}){
       if(controller.signal.aborted)return;
       setDays(nextDays);
       const eligible=nextDays.filter(day=>day.day<currentDay).sort((a,b)=>b.day-a.day);
-      setSelectedDay(previous=>previous!==null&&eligible.some(day=>day.day===previous)?previous:eligible[0]?.day??null);
+      const requested=initialDay!==undefined&&Number.isInteger(initialDay)&&initialDay>=1&&initialDay<currentDay&&eligible.some(day=>day.day===initialDay)?initialDay:null;
+      setSelectedDay(previous=>requested??(previous!==null&&eligible.some(day=>day.day===previous)?previous:eligible[0]?.day??null));
       setDaysLoading(false);
     }).catch(reason=>{if(!controller.signal.aborted){setDaysError(reason instanceof Error?reason.message:'Investigation days were unavailable.');setDaysLoading(false);}});
     return()=>controller.abort();
@@ -127,6 +129,11 @@ export function Investigation({currentDay}:{currentDay:number}){
     }).catch(reason=>{if(!controller.signal.aborted){setLoading(false);setError(reason instanceof Error?reason.message:'Investigation details were unavailable.');}});
     return()=>{controller.abort();cancelPoll();};
   },[selectedDay,currentDay,refreshToken]);
+
+  useEffect(()=>{
+    if(initialDay!==undefined&&previousInitialDay.current!==initialDay&&Number.isInteger(initialDay)&&initialDay>=1&&initialDay<currentDay&&days.some(day=>day.day===initialDay))setSelectedDay(initialDay);
+    previousInitialDay.current=initialDay;
+  },[currentDay,days,initialDay]);
 
   async function submitAnswer(){
     const day=selectedDay;
