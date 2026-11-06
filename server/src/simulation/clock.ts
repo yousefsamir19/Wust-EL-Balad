@@ -5,6 +5,7 @@ import { advanceCitizens } from '../citizens/routines.js';
 import { advanceEconomy } from '../economy/lifecycle.js';
 import { advanceSocial } from '../social/engine.js';
 import { captureDaySources } from '../archives/records.js';
+import { advanceRumors } from '../rumors/engine.js';
 
 export const GAME_DAY_MS = 86400000;
 export interface WorldState { game_time_ms: number; version: number; tick: number }
@@ -72,6 +73,7 @@ export class SimulationClock {
       }
       advanceEconomy(this.db, next, previous);
       advanceCitizens(this.db, next, realElapsedMs, next.game_time_ms - previous.game_time_ms);
+      advanceRumors(this.db,next);
       advanceSocial(this.db, next);
       for(let day=firstDay;day<lastDay;day++)captureDaySources(this.db,day,day*GAME_DAY_MS);
       this.db.prepare('UPDATE world SET game_time_ms = ?, version = ?, tick = ?, updated_at = ? WHERE id = 1')

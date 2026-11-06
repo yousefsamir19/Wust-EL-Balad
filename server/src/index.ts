@@ -11,6 +11,7 @@ import { InterrogationService } from './interrogation/service.js';
 import { Chronicler } from './archives/chronicler.js';
 import { InvestigationService } from './investigations/service.js';
 import { InfluenceService,envInterventionCosts } from './influence/service.js';
+import { RumorService } from './rumors/service.js';
 
 const port = Number(process.env.PORT ?? 3000);
 if (!Number.isInteger(port) || port < 1 || port > 65535) {
@@ -24,7 +25,8 @@ const interrogation=new InterrogationService(db,clock,ai);
 const chronicler=new Chronicler(db,clock,ai);
 const investigations=new InvestigationService(db,clock,ai);
 const influence=new InfluenceService(db,clock,envInterventionCosts());
-const server = createApp(undefined, db,ai,aiSettings,{clock,interrogation,investigations,influence}).listen(port, process.env.HOST ?? '0.0.0.0', () => {
+const rumors=new RumorService(db,clock);
+const server = createApp(undefined, db,ai,aiSettings,{clock,interrogation,investigations,influence,rumors}).listen(port, process.env.HOST ?? '0.0.0.0', () => {
   console.log(`Wust El Balad listening on port ${port}`);
   clock.start();
 });

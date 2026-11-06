@@ -1,0 +1,65 @@
+.rumors { display:flex;flex-direction:column;min-width:0;min-height:0;height:100%;color:#f2e0b6;font:21px 'VT323',monospace; }
+.rumors-header { display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex:0 0 auto; }
+.rumors-header>div:first-child { min-width:0; }
+.rumors h2 { margin:0;font-size:12px;line-height:1.7;overflow-wrap:anywhere; }
+.rumors h3 { margin:0 0 6px;font-size:11px;line-height:1.5;color:#e2bf69; }
+.rumors h4 { margin:7px 0 3px;font-size:18px;color:#e2bf69; }
+.rumors p { line-height:1.15;overflow-wrap:anywhere; }
+.rumors-header p { margin:4px 0 0;color:#b9c6b2;font-size:18px; }
+.rumors-day { display:flex;flex-direction:column;align-items:flex-end;flex:0 0 auto;color:#e2bf69;text-align:right; }
+.rumors-day span { color:#b9c6b2;font-size:16px; }
+.rumors-day b { font-size:28px;line-height:1; }
+.rumors-note,.rumors-status,.rumors-opportunity,.rumors-immutable,.rumors-edit-note { color:#b9c6b2;font-size:18px;margin:7px 0; }
+.rumors-error { color:#ffc1ad;margin:6px 0; }
+.rumors-retry { display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;color:#ffc1ad;border:2px solid #a86355;padding:6px;margin:6px 0; }
+.rumors-compose { flex:0 0 auto;border:2px solid #62756f;padding:8px;margin-top:5px; }
+.rumors-compose h3 { margin-top:0; }
+.rumors label { display:block; }
+.rumors textarea { box-sizing:border-box;width:100%;min-height:44px;margin-top:4px;background:#10232d;color:inherit;border:2px solid #62756f;font:inherit;padding:7px;resize:vertical;max-height:150px;line-height:1.1; }
+.rumors textarea:focus,.rumors button:focus { outline:2px solid #e2bf69;outline-offset:1px; }
+.rumors textarea:disabled,.rumors button:disabled { opacity:.65;cursor:not-allowed; }
+.rumors button { min-width:100px;min-height:44px;margin-top:7px;font:inherit;padding:5px 12px; }
+.rumors-count { display:block;color:#c8a269;text-align:right;margin-top:2px; }
+.rumors-opportunity { margin-bottom:0; }
+.rumors-list,.rumors-history { flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;background:#10232d;padding:9px;margin-top:9px; }
+.rumors-history { flex:0 1 35%;max-height:42%; }
+.rumor-card { border-bottom:1px solid #62756f;padding:7px 0; }
+.rumor-card:last-child { border-bottom:0; }
+.rumor-card-header { display:flex;justify-content:space-between;gap:8px;color:#c8a269;font-size:18px; }
+.rumor-status { display:inline-block;color:#10232d;background:#e2bf69;padding:1px 6px;font-size:17px; }
+.rumor-status-published { background:#9ac28b; }
+.rumor-status-expired { background:#a98d8d; }
+.rumor-text { margin:6px 0;white-space:pre-wrap;overflow-wrap:anywhere;color:#fff2ce; }
+.rumor-meta { display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin:7px 0 0; }
+.rumor-meta div { display:contents; }
+.rumor-meta dt { color:#b9c6b2; }
+.rumor-meta dd { margin:0;text-align:right;overflow-wrap:anywhere; }
+.rumor-voters { margin-top:7px;border-top:1px solid #435a59;padding-top:3px; }
+.rumor-voters ul { list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:2px 10px; }
+.rumor-voters li { overflow-wrap:anywhere; }
+.rumor-voters li span { color:#b9c6b2; }
+.rumor-voters .voter-approved span { color:#9ac28b; }
+.rumor-voters .voter-waiting span { color:#e2bf69; }
+.rumor-voters small { color:#b9c6b2; }
+.rumor-count-note { color:#c8a269;font-size:18px;margin:4px 0 0; }
+.rumor-edit-form { border:2px solid #62756f;padding:7px;margin:7px 0; }
+.rumor-edit-form .rumors-edit-note { margin-bottom:0; }
+.rumor-actions { display:flex;gap:8px;flex-wrap:wrap; }
+.rumor-actions button { margin-top:6px; }
+.rumors-immutable { color:#c8a269; }
+.hud .tool-sheet[aria-label='Rumors'] { display:flex;flex-direction:column;gap:5px; }
+.hud .tool-sheet[aria-label='Rumors']>.sheet-close { float:none;align-self:flex-end;flex:0 0 auto; }
+.hud .tool-sheet[aria-label='Rumors']>.rumors { flex:1 1 auto;height:auto; }
+@media(max-width:700px) {
+  .hud .tool-sheet[aria-label='Rumors'] { inset:4px;max-height:none;max-width:none;width:auto;height:auto;transform:none; }
+  .rumors-header { gap:8px; }
+  .rumors h2 { font-size:10px; }
+  .rumors-day b { font-size:24px; }
+  .rumors-note { font-size:17px; }
+  .rumors-list,.rumors-history { padding:8px; }
+  .rumors-history { flex-basis:40%;max-height:45%; }
+  .rumor-meta { grid-template-columns:1fr;gap:2px; }
+  .rumor-meta dd { text-align:left; }
+  .rumor-voters ul { grid-template-columns:1fr; }
+}
+.rumors:not(:has(.rumors-list)) .rumors-history { flex:1 1 auto;max-height:none; }
