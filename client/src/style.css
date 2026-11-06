@@ -12,3 +12,6 @@ footer { color: #acb8b6; font-size: .8rem; }
 .accounts button { background: #d6ac62; color: #172733; padding: .6rem 1rem; border: 2px solid #f0cc88; box-shadow: 3px 3px 0 #080f14; cursor: pointer; }
 .accounts button:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #080f14; }
 .accounts button:disabled { opacity: .6; cursor: wait; }
+
+.pixel-preview { overflow-x: auto; border: 2px solid #667a85; }
+.pixel-preview canvas { display: block; width: 480px; height: 560px; image-rendering: pixelated; }

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { PROJECT, type HealthResponse } from '../../shared/index';
 import './style.css';
 import { AccountPanel } from './AccountPanel';
+import { AssetGallery } from './game/AssetGallery';
 
 function App() {
   const [status, setStatus] = useState('Connecting to backend…');
@@ -25,6 +26,7 @@ function App() {
         <p className="mt-6 text-lg">The player does not control the story. The player discovers the story.</p>
         <div className="status mt-8" role="status">{status}</div>
         <AccountPanel />
+        <AssetGallery />
         <footer className="mt-8">{PROJECT.newspaper} · Project foundation</footer>
       </section>
     </main>

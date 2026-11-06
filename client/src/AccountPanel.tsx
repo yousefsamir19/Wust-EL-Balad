@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import type { PlayerProfile } from '../../shared/auth';
+import { PixelAvatar } from './game/AssetGallery';
 
 export function AccountPanel() {
   const [player, setPlayer] = useState<PlayerProfile | null>(null);
@@ -46,6 +47,7 @@ export function AccountPanel() {
   return (
     <section className="accounts mt-8" aria-label="Player account">
       <h2 className="text-xl font-bold">{player ? `Observer: ${player.username}` : mode === 'signup' ? 'Create observer account' : 'Observer login'}</h2>
+      {player && <div className="mt-3"><PixelAvatar avatar={avatar} label={`${player.username}'s selected observer avatar`} /></div>}
       {player && <p className="mt-2">{player.role} · Influence: {player.influence}</p>}
       <form onSubmit={submit} className="mt-4 flex flex-col gap-3">
         <label>Username<input key={player ? 'profile' : 'credentials'} name="username" required minLength={3} maxLength={24} pattern="[A-Za-z0-9_]+" autoComplete="username" {...(player ? { value: username, onChange: (e) => setUsername(e.target.value) } : {})} /></label>
