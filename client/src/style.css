@@ -5,3 +5,10 @@
 .eyebrow { color: #e2b45f; text-transform: uppercase; letter-spacing: .12em; font-size: .8rem; }
 .status { display: inline-block; border: 2px solid #6e9d88; padding: .65rem 1rem; color: #b6e0c5; }
 footer { color: #acb8b6; font-size: .8rem; }
+
+.accounts { border-top: 2px solid #52626b; padding-top: 1.5rem; }
+.accounts label { display: flex; flex-direction: column; gap: .4rem; }
+.accounts input, .accounts select { background: #0d1b23; border: 2px solid #667a85; color: #f4e4c6; padding: .6rem; width: 100%; }
+.accounts button { background: #d6ac62; color: #172733; padding: .6rem 1rem; border: 2px solid #f0cc88; box-shadow: 3px 3px 0 #080f14; cursor: pointer; }
+.accounts button:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #080f14; }
+.accounts button:disabled { opacity: .6; cursor: wait; }

@@ -2,6 +2,7 @@ import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { PROJECT, type HealthResponse } from '../../shared/index';
 import './style.css';
+import { AccountPanel } from './AccountPanel';
 
 function App() {
   const [status, setStatus] = useState('Connecting to backend…');
@@ -23,6 +24,7 @@ function App() {
         <h1 className="text-4xl sm:text-5xl font-bold mt-4">{PROJECT.name}</h1>
         <p className="mt-6 text-lg">The player does not control the story. The player discovers the story.</p>
         <div className="status mt-8" role="status">{status}</div>
+        <AccountPanel />
         <footer className="mt-8">{PROJECT.newspaper} · Project foundation</footer>
       </section>
     </main>
