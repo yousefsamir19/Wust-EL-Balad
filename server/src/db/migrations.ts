@@ -144,6 +144,13 @@ CREATE TABLE ai_keys (
 );
 CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE processed_commands (id TEXT PRIMARY KEY, result TEXT NOT NULL, world_version INTEGER NOT NULL);
+` }, { version: 2, sql: `
+CREATE TABLE simulation_lock (
+  id INTEGER PRIMARY KEY CHECK (id = 1), owner_id TEXT NOT NULL, expires_at INTEGER NOT NULL
+);
+CREATE TABLE closed_days (
+  day INTEGER PRIMARY KEY, closed_game_ms INTEGER NOT NULL, event_id INTEGER NOT NULL REFERENCES events(id)
+);
 ` }];
 
 export function migrate(db: Database.Database) {
