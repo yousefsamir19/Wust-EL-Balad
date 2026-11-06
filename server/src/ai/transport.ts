@@ -128,6 +128,7 @@ export function defaults(kind: ProviderKind): { baseUrl: string; jsonMode: JsonM
 
 export function validateEndpoint(kind: ProviderKind, baseUrl: string, allowedOrigins: string[] = []): void {
   const url = parseUrl(baseUrl);
+  if(!['http:','https:'].includes(url.protocol))failure('unsafe_endpoint');
   if (!url.hostname || url.username || url.password || url.search || url.hash) failure('unsafe_endpoint');
 
   const manual = originIsAllowed(url, allowedOrigins);

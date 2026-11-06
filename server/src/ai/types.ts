@@ -10,6 +10,6 @@ export class AiFailure extends Error {
 export interface WireRequest {system:string;prompt:string;schema:JsonSchema;maxOutputTokens:number}
 export interface WireResult {value:unknown;inputTokens:number;outputTokens:number}
 export type Transport=(provider:ProviderConfig,key:ProviderKey|undefined,request:WireRequest,signal:AbortSignal)=>Promise<WireResult>;
-export interface AiTask<T> {id:string;purpose:string;system:string;prompt:string;schema:JsonSchema;parse:(value:unknown)=>T;fallback:()=>T;actorId?:string;urgent?:boolean;batchable?:boolean;maxOutputTokens?:number;timeoutMs?:number}
+export interface AiTask<T> {id:string;purpose:string;system:string;prompt:string;schema:JsonSchema;parse:(value:unknown)=>T;fallback:()=>T;actorId?:string;providerId?:string;urgent?:boolean;batchable?:boolean;maxOutputTokens?:number;timeoutMs?:number}
 export interface AiResult<T> {value:T;source:'network'|'local';providerId:string|null;reason:AiFailureCode|null}
-export interface ProviderStatus {id:string;cooldownUntil:number;lastError:AiFailureCode|null;lastSuccess:number|null;requests:number;inputTokens:number;outputTokens:number;keys:{id:string;cooldownUntil:number;lastError:AiFailureCode|null}[]}
+export interface ProviderStatus {id:string;cooldownUntil:number;ownCooldownUntil?:number;quotaCooldownUntil?:number;lastError:AiFailureCode|null;lastSuccess:number|null;requests:number;inputTokens:number;outputTokens:number;keys:{id:string;cooldownUntil:number;lastError:AiFailureCode|null}[]}

@@ -9,5 +9,6 @@ backups/
 *.db-*
 *.sqlite*
 *.log
+**/.ai-encryption-key
 coverage/
 .DS_Store

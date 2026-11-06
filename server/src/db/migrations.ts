@@ -208,6 +208,11 @@ CREATE TABLE social_cursor(id INTEGER PRIMARY KEY CHECK(id=1),last_event_id INTE
 CREATE TABLE social_state (
   citizen_id TEXT PRIMARY KEY REFERENCES citizens(id),last_compaction_day INTEGER NOT NULL,last_decay_game_ms INTEGER NOT NULL
 );
+` }, { version: 6, sql: `
+ALTER TABLE ai_keys ADD COLUMN label TEXT NOT NULL DEFAULT 'Key';
+ALTER TABLE ai_keys ADD COLUMN last_error TEXT;
+CREATE TABLE ai_provider_status (provider_id TEXT PRIMARY KEY REFERENCES ai_providers(id) ON DELETE CASCADE,status TEXT NOT NULL CHECK(json_valid(status)));
+CREATE TABLE ai_audit (id INTEGER PRIMARY KEY AUTOINCREMENT,admin_id TEXT REFERENCES players(id),action TEXT NOT NULL,provider_id TEXT,details TEXT NOT NULL CHECK(json_valid(details)),created_at TEXT NOT NULL);
 ` }];
 
 export function migrate(db: Database.Database) {

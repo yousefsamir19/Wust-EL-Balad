@@ -12,9 +12,12 @@ export class AiScheduler {
   private quotas=new Map<string,{until:number;failures:number}>();private requests:{at:number;provider:string;tokens:number}[]=[];
   private actors=new Map<string,number>();private controllers=new Set<AbortController>();private active=0;private stopped=false;private players=0;private fallbacks=0;
   private timer:ReturnType<typeof setTimeout>|undefined;private transport:Transport;private now:()=>number;
+  private statusListener:((statuses:ProviderStatus[])=>void)|undefined;
+  private revision=0;
   constructor(providers:ProviderConfig[]=[],private options:Options={}){this.transport=options.transport??defaultTransport;this.now=options.now??Date.now;this.updateProviders(providers);}
-  updateProviders(providers:ProviderConfig[]) {
-    this.providers=providers.map(p=>({...p,keys:p.keys.map(k=>({...k}))})).sort((a,b)=>a.priority-b.priority||a.id.localeCompare(b.id));
+  updateProviders(providers:ProviderConfig[],activeId?:string|null) {
+    this.revision++;
+    this.providers=providers.map(p=>({...p,keys:p.keys.map(k=>({...k}))})).sort((a,b)=>Number(b.id===activeId)-Number(a.id===activeId)||a.priority-b.priority||a.id.localeCompare(b.id));
     for(const p of this.providers) {
       if(!this.states.has(p.id))this.states.set(p.id,state());
       const status=this.states.get(p.id)!;if(status.lastError!=='rate_limited'){status.cooldownUntil=0;status.lastError=null;}
@@ -23,7 +26,11 @@ export class AiScheduler {
     if(this.queue.length)this.schedule();
   }
   setActivePlayers(count:number){const next=Math.max(0,count);if(!this.players&&next){const limit=this.now()+(this.options.activeIntervalMs??30000);this.actors.forEach((time,id)=>this.actors.set(id,Math.min(time,limit)));}this.players=next;}
-  statuses():ProviderStatus[]{return this.providers.map(p=>{const s=this.states.get(p.id)!;return {id:p.id,cooldownUntil:Math.max(s.cooldownUntil,this.quotas.get(new URL(p.baseUrl).origin)?.until??0),lastError:s.lastError,lastSuccess:s.lastSuccess,requests:s.requests,inputTokens:s.inputTokens,outputTokens:s.outputTokens,keys:p.keys.map(k=>({id:k.id,cooldownUntil:this.keys.get(`${p.id}/${k.id}`)?.cooldownUntil??0,lastError:this.keys.get(`${p.id}/${k.id}`)?.lastError??null}))};});}
+  statuses():ProviderStatus[]{return this.providers.map(p=>{const s=this.states.get(p.id)!,quota=this.quotas.get(new URL(p.baseUrl).origin)?.until??0;return {id:p.id,cooldownUntil:Math.max(s.cooldownUntil,quota),ownCooldownUntil:s.cooldownUntil,quotaCooldownUntil:quota,lastError:s.lastError,lastSuccess:s.lastSuccess,requests:s.requests,inputTokens:s.inputTokens,outputTokens:s.outputTokens,keys:p.keys.map(k=>({id:k.id,cooldownUntil:this.keys.get(`${p.id}/${k.id}`)?.cooldownUntil??0,lastError:this.keys.get(`${p.id}/${k.id}`)?.lastError??null}))};});}
+  onStatus(listener:(statuses:ProviderStatus[])=>void){this.statusListener=listener;}
+  private notify(){try{this.statusListener?.(this.statuses());}catch{/*Diagnostics cannot stop simulation work.*/}}
+  resetKeyBackoff(providerId:string,keyId:string){const key=this.keys.get(`${providerId}/${keyId}`);if(key){key.cooldownUntil=0;key.lastError=null;}}
+  restoreStatuses(statuses:ProviderStatus[]){for(const saved of statuses){const p=this.providers.find(p=>p.id===saved.id),s=this.states.get(saved.id);if(!p||!s)continue;Object.assign(s,{cooldownUntil:saved.ownCooldownUntil??saved.cooldownUntil,lastError:saved.lastError,lastSuccess:saved.lastSuccess,requests:saved.requests,inputTokens:saved.inputTokens,outputTokens:saved.outputTokens});if(saved.quotaCooldownUntil&&saved.quotaCooldownUntil>this.now())this.quotas.set(new URL(p.baseUrl).origin,{until:saved.quotaCooldownUntil,failures:1});for(const k of saved.keys){const current=this.keys.get(`${p.id}/${k.id}`);if(current){current.cooldownUntil=k.cooldownUntil;current.lastError=k.lastError;}}}}
   summary(){return {providers:this.statuses(),queued:this.queue.length,active:this.active,localFallbacks:this.fallbacks,activePlayers:this.players};}
   run<T>(task:AiTask<T>):Promise<T>{return this.runDetailed(task).then(result=>result.value);}
   runDetailed<T>(task:AiTask<T>):Promise<AiResult<T>> {
@@ -39,7 +46,7 @@ export class AiScheduler {
     this.pending.set(task.id,job);this.queue.push(job);this.queue.sort((a,b)=>Number(!!b.task.urgent)-Number(!!a.task.urgent));this.schedule();return promise as Promise<AiResult<T>>;
   }
   private schedule(){if(!this.timer&&!this.stopped)this.timer=setTimeout(()=>{this.timer=undefined;this.pump();},this.options.batchDelayMs??10);}
-  private compatible(a:Job,b:Job){return a.task.batchable&&b.task.batchable&&a.task.actorId===b.task.actorId&&a.task.purpose===b.task.purpose&&a.task.system===b.task.system&&JSON.stringify(a.task.schema)===JSON.stringify(b.task.schema);}
+  private compatible(a:Job,b:Job){return a.task.batchable&&b.task.batchable&&a.task.providerId===b.task.providerId&&a.task.actorId===b.task.actorId&&a.task.purpose===b.task.purpose&&a.task.system===b.task.system&&JSON.stringify(a.task.schema)===JSON.stringify(b.task.schema);}
   private pump(){while(this.queue.length&&this.active<(this.options.concurrency??2)&&!this.stopped){const first=this.queue.shift()!,group=[first];for(let i=0;i<this.queue.length&&group.length<(this.options.batchSize??4);){if(this.compatible(first,this.queue[i]))group.push(this.queue.splice(i,1)[0]);else i++;}this.active++;void this.execute(group).finally(()=>{this.active--;this.pump();});}}
   private finish(job:Job,result:AiResult<unknown>){this.pending.delete(job.task.id);job.resolve(result);}
   private local(job:Job,reason:AiFailureCode){this.fallbacks++;this.pending.delete(job.task.id);try{job.resolve({value:job.task.parse(job.task.fallback()),source:'local',providerId:null,reason});}catch{job.reject(new AiFailure('validation_error'));}}
@@ -60,15 +67,16 @@ export class AiScheduler {
     }catch(error){throw error instanceof AiFailure?error:new AiFailure('network_error');}finally{if(timer)clearTimeout(timer);this.controllers.delete(controller);}
   }
   private async execute(jobs:Job[]) {
-    const deadline=Math.min(...jobs.map(j=>j.expires));let reason:AiFailureCode='disabled';
+    const deadline=Math.min(...jobs.map(j=>j.expires)),revision=this.revision;let reason:AiFailureCode='disabled';
     const request:WireRequest={system:jobs[0].task.system,prompt:jobs.length===1?jobs[0].task.prompt:JSON.stringify({requests:jobs.map(j=>({id:j.task.id,prompt:j.task.prompt})),instruction:'Return exactly one result for each request id. Do not combine or change ids.'}),schema:jobs.length===1?jobs[0].task.schema:{type:'object',properties:{results:{type:'array',items:{type:'object',properties:{id:{type:'string',enum:jobs.map(j=>j.task.id)},value:jobs[0].task.schema},required:['id','value'],additionalProperties:false},minItems:jobs.length,maxItems:jobs.length}},required:['results'],additionalProperties:false},maxOutputTokens:Math.min(8192,jobs.reduce((n,j)=>n+(j.task.maxOutputTokens??512),0))};
-    const providers=this.providers.map(p=>({...p,keys:p.keys.map(k=>({...k}))}));
+    const providers=this.providers.filter(p=>!jobs[0].task.providerId||p.id===jobs[0].task.providerId).map(p=>({...p,keys:p.keys.map(k=>({...k}))}));
     try {
       for(const p of providers) {
-        if(this.stopped)break;const s=this.states.get(p.id)!,origin=new URL(p.baseUrl).origin;
-        if(!p.enabled||!p.model||Math.max(s.cooldownUntil,this.quotas.get(origin)?.until??0)>this.now())continue;
+        if(this.stopped||revision!==this.revision)break;const s=this.states.get(p.id)!,origin=new URL(p.baseUrl).origin;
+        if(!p.enabled||!p.model)continue;
+        if(Math.max(s.cooldownUntil,this.quotas.get(origin)?.until??0)>this.now()){reason=(this.quotas.get(origin)?.until??0)>this.now()?'rate_limited':s.lastError??'disabled';continue;}
         for(let attempt=0;attempt<2;attempt++) {
-          if(this.stopped||this.now()>=deadline){reason='timeout';break;}
+          if(this.stopped||revision!==this.revision||this.now()>=deadline){reason='timeout';break;}
           const available=p.keys.filter(k=>k.enabled&&k.value&&(this.keys.get(`${p.id}/${k.id}`)?.cooldownUntil??0)<=this.now());
           if(!available.length&&p.kind!=='ollama')break;
           const key=available.length?available[s.keyIndex++%available.length]:undefined;
@@ -78,20 +86,21 @@ export class AiScheduler {
               if(jobs.length===1)values=[jobs[0].task.parse(response.value)];
               else {const results=(response.value as {results?:{id:string;value:unknown}[]})?.results;if(!Array.isArray(results)||results.length!==jobs.length||new Set(results.map(r=>r.id)).size!==jobs.length||results.some(r=>!jobs.some(j=>j.task.id===r.id)))throw new Error('Invalid batch');values=jobs.map(j=>j.task.parse(results.find(r=>r.id===j.task.id)!.value));}
             }catch{throw new AiFailure('validation_error');}
-            s.lastSuccess=this.now();s.lastError=null;s.cooldownUntil=0;this.quotas.delete(origin);if(key)this.keys.get(`${p.id}/${key.id}`)!.lastError=null;
+            s.lastSuccess=this.now();if(revision===this.revision){s.lastError=null;s.cooldownUntil=0;this.quotas.delete(origin);if(key)this.keys.get(`${p.id}/${key.id}`)!.lastError=null;}
             jobs.forEach((job,i)=>this.finish(job,{value:values[i],source:'network',providerId:p.id,reason:null}));return;
           } catch(error) {
-            const failure=error instanceof AiFailure?error:new AiFailure('network_error');reason=failure.code;s.lastError=reason;
+            const failure=error instanceof AiFailure?error:new AiFailure('network_error');reason=failure.code;if(revision===this.revision)s.lastError=reason;
             if(reason==='budget_exhausted')break;
-            if(key)this.keys.get(`${p.id}/${key.id}`)!.lastError=reason;
-            if(reason==='invalid_key'){if(key)this.keys.get(`${p.id}/${key.id}`)!.cooldownUntil=this.now()+600000;continue;}
-            if(reason==='rate_limited'){const q=this.quotas.get(origin)??{until:0,failures:0};q.failures++;q.until=this.now()+Math.min(3600000,Math.max(1000*2**Math.min(q.failures,12),failure.retryAfterMs));this.quotas.set(origin,q);s.cooldownUntil=q.until;break;}
+            if(key&&revision===this.revision)this.keys.get(`${p.id}/${key.id}`)!.lastError=reason;
+            if(reason==='invalid_key'){if(key&&revision===this.revision)this.keys.get(`${p.id}/${key.id}`)!.cooldownUntil=this.now()+600000;continue;}
+            if(reason==='rate_limited'){const q=this.quotas.get(origin)??{until:0,failures:0};q.failures++;q.until=this.now()+Math.min(3600000,Math.max(1000*2**Math.min(q.failures,12),failure.retryAfterMs));this.quotas.set(origin,q);if(revision===this.revision)s.cooldownUntil=q.until;break;}
+            if(revision!==this.revision)break;
             if(reason==='invalid_output'||reason==='validation_error'||reason==='unsafe_endpoint'){s.cooldownUntil=this.now()+60000;break;}
             if(attempt===1){s.cooldownUntil=this.now()+2000;break;}
           }
         }
       }
-    }catch(error){reason=error instanceof AiFailure?error.code:'network_error';}
+    }catch(error){reason=error instanceof AiFailure?error.code:'network_error';}finally{this.notify();}
     jobs.forEach(job=>this.local(job,reason));
   }
   stop(){this.stopped=true;if(this.timer)clearTimeout(this.timer);this.timer=undefined;this.controllers.forEach(c=>c.abort());for(const job of this.queue.splice(0))this.local(job,'disabled');}
