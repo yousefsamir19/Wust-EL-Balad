@@ -228,6 +228,10 @@ CREATE TABLE chronicle_sources(day INTEGER PRIMARY KEY REFERENCES closed_days(da
 CREATE TABLE investigation_truth(day INTEGER PRIMARY KEY REFERENCES closed_days(day),closed_game_ms INTEGER NOT NULL,facts TEXT NOT NULL CHECK(json_valid(facts)),snapshot_hash TEXT NOT NULL);
 ALTER TABLE investigations ADD COLUMN created_at TEXT;
 ALTER TABLE investigations ADD COLUMN completed_game_ms INTEGER;
+` }, {version:11,sql:`
+ALTER TABLE interventions ADD COLUMN event_id INTEGER REFERENCES events(id);
+CREATE TABLE intervention_hints(id TEXT PRIMARY KEY REFERENCES interventions(id),citizen_id TEXT NOT NULL REFERENCES citizens(id),goal TEXT NOT NULL,bonus INTEGER NOT NULL CHECK(bonus BETWEEN 0 AND 20),expires_game_ms INTEGER NOT NULL,event_id INTEGER NOT NULL REFERENCES events(id));
+ALTER TABLE citizen_routines ADD COLUMN decision_cause_id INTEGER REFERENCES events(id);
 ` }];
 
 export function migrate(db: Database.Database) {

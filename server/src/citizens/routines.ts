@@ -6,6 +6,7 @@ import { consumeMeal, economicArrival, economicChoice } from '../economy/actions
 import { applyCitizenAction,captureCitizenFrame } from './actions.js';
 import { enrichDialogue } from './policy.js';
 import { waitAction } from './reasoning-types.js';
+import { activeHint } from '../influence/service.js';
 
 interface Needs { hunger: number; energy: number; social: number }
 interface Citizen extends TilePoint {
@@ -17,6 +18,7 @@ interface Routine {
   citizen_id: string; goal_action: string; target_building_id: string | null; path: string;
   next_decision_game_ms: number; movement_remainder: number; next_speech_game_ms: number;
   direction: VisibleCitizen['direction'];
+  decision_cause_id: number | null;
 }
 interface Schedule { shift_start: number; shift_end: number }
 export interface UtilityChoice { action: 'eat' | 'sleep' | 'work' | 'socialize' | 'idle'; targetId: string; score: number }
@@ -29,7 +31,7 @@ export function initializeRoutines(db: WorldDatabase) {
     CASE workplace_id WHEN 'cafe' THEN 900 WHEN 'store' THEN 1080 ELSE 1020 END FROM citizens`).run();
 }
 
-export function chooseUtility(citizen: Citizen, needs: Needs, minute: number, schedule: Schedule): UtilityChoice {
+export function chooseUtility(citizen: Citizen, needs: Needs, minute: number, schedule: Schedule, hint?:{goal:string;bonus:number}|null): UtilityChoice {
   const night = minute >= 1320 || minute < 420;
   const onShift = minute >= schedule.shift_start && minute < schedule.shift_end;
   const trait = (JSON.parse(citizen.personality) as { trait: string }).trait;
@@ -40,6 +42,7 @@ export function chooseUtility(citizen: Citizen, needs: Needs, minute: number, sc
     { action: 'idle', targetId: ['outgoing', 'curious', 'optimistic'].includes(trait) ? 'square' : citizen.home_id, score: 10 },
   ];
   if (citizen.workplace_id && onShift) choices.push({ action: 'work', targetId: citizen.workplace_id, score: 65 });
+  if(hint&&needs.hunger<85&&needs.energy>15){const candidate=choices.find(choice=>choice.action===hint.goal&&choice.score>0);if(candidate)candidate.score+=Math.max(0,Math.min(20,hint.bonus));}
   return choices.sort((a, b) => b.score - a.score)[0];
 }
 
@@ -63,8 +66,8 @@ export function advanceCitizens(db: WorldDatabase, world: WorldState, realElapse
   const hours = gameElapsedMs / 3600000;
   const minute = world.game_time_ms % 86400000 / 60000;
   const event = (type: string, citizen: Citizen, target: string | null, details: Record<string, unknown>) =>
-    db.prepare(`INSERT INTO events (world_version,game_time_ms,type,actor_id,target,visibility,details) VALUES (?,?,?,?,?,'public',?)`)
-      .run(world.version, world.game_time_ms, type, citizen.id, target, JSON.stringify({...details,witnessIds:citizens.filter(person=>person.id===citizen.id||person.building_id===citizen.building_id&&Math.abs(person.x-citizen.x)+Math.abs(person.y-citizen.y)<=3).map(person=>person.id)}));
+    db.prepare(`INSERT INTO events (world_version,game_time_ms,type,actor_id,target,visibility,details,cause_id) VALUES (?,?,?,?,?,'public',?,?)`)
+      .run(world.version, world.game_time_ms, type, citizen.id, target, JSON.stringify({...details,witnessIds:citizens.filter(person=>person.id===citizen.id||person.building_id===citizen.building_id&&Math.abs(person.x-citizen.x)+Math.abs(person.y-citizen.y)<=3).map(person=>person.id)}), (db.prepare('SELECT decision_cause_id FROM citizen_routines WHERE citizen_id=?').get(citizen.id) as {decision_cause_id:number|null}).decision_cause_id);
 
   for (const citizen of citizens) {
     const routine = db.prepare('SELECT * FROM citizen_routines WHERE citizen_id = ?').get(citizen.id) as Routine;
@@ -83,7 +86,9 @@ export function advanceCitizens(db: WorldDatabase, world: WorldState, realElapse
       (routine.goal_action === 'work' && !onShift) || (routine.goal_action === 'eat' && needs.hunger < 15) ||
       (routine.goal_action === 'socialize' && needs.social < 10);
     if (reconsider) {
-      const choice = economicChoice(db, world, citizen, chooseUtility(citizen, needs, minute, schedule));
+      const hint=activeHint(db,citizen.id,world.game_time_ms),base=chooseUtility(citizen,needs,minute,schedule);
+      const choice = economicChoice(db, world, citizen, chooseUtility(citizen, needs, minute, schedule,hint));
+      routine.decision_cause_id=hint&&choice.action===hint.goal&&(choice.action!==base.action||choice.targetId!==base.targetId)?hint.eventId:null;
       if (choice.action !== routine.goal_action || choice.targetId !== routine.target_building_id || citizen.activity === 'blocked') {
         routine.goal_action = choice.action;
         routine.target_building_id = choice.targetId;
@@ -94,6 +99,7 @@ export function advanceCitizens(db: WorldDatabase, world: WorldState, realElapse
         blocked = route === null;
       }
       routine.next_decision_game_ms = world.game_time_ms + 5 * 60000;
+      db.prepare('UPDATE citizen_routines SET decision_cause_id=? WHERE citizen_id=?').run(routine.decision_cause_id,citizen.id);
     }
     const target = routine.target_building_id ? buildingById.get(routine.target_building_id) : undefined;
     if (path.length && (!walkable(path[0], buildings) || occupied.has(tileKey(path[0])) || Math.abs(path[0].x - citizen.x) + Math.abs(path[0].y - citizen.y) !== 1)) {

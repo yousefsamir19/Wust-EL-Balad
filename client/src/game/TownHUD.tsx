@@ -10,6 +10,7 @@ import { ObserverChat,CharacterChat,ImportantEvents } from './ChatPanels';
 import { Interrogation } from './Interrogation';
 import { TownArchives } from './TownArchives';
 import { Investigation } from './Investigation';
+import { InfluencePanel } from './InfluencePanel';
 import './hud.css';
 
 const core = [{id:'map',label:'Map',icon:'map'},{id:'citizens',label:'Citizens',icon:'citizens'},{id:'events',label:'Events',icon:'events'},{id:'players',label:'Players',icon:'players'},{id:'influence',label:'Influence',icon:'influence'}];
@@ -51,7 +52,7 @@ export function TownHUD({ player: initialPlayer, onBack }: { player:PlayerProfil
     if (coming[view]) return <><h2>{titles[view]}</h2><p className="quiet">This gameplay panel will be implemented in Task {coming[view]}.</p></>;
     if (view==='events') return <><ImportantEvents revision={importantRevision}/><button onClick={()=>setView('timeline')}>Timeline</button><button onClick={()=>setView('newspaper')}>Newspaper</button><button onClick={()=>setView('investigation')}>Investigate</button></>;
     if (view==='players') return <><h2>Observers</h2><p>{world!.playerCount}/6 players connected.</p><p className="quiet">AI citizens cannot see player discussion.</p><button onClick={()=>setView('observer-chat')}>Observer Chat</button><button onClick={()=>setView('profile')}>Profile</button><button onClick={()=>setView('leaderboard')}>Leaderboard</button></>;
-    if (view==='influence') return <><h2>Influence</h2><p>{player.influence} Influence Points</p><p className="quiet">Limited interventions arrive in Task 18. Influence never guarantees an outcome.</p><button onClick={()=>setView('rumors')}>Rumors</button></>;
+    if (view==='influence') return <InfluencePanel citizens={world!.citizens} selectedCitizenId={selectedId} onCitizenChange={setSelectedId}/>;
     return null;
   }
   const showTool=view!=='map';

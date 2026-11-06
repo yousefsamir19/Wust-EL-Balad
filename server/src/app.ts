@@ -18,8 +18,10 @@ import type { InterrogationService } from './interrogation/service.js';
 import { archivesRouter } from './archives/routes.js';
 import { investigationsRouter } from './investigations/routes.js';
 import type { InvestigationService } from './investigations/service.js';
+import { influenceRouter } from './influence/routes.js';
+import type { InfluenceService } from './influence/service.js';
 
-export function createApp(clientDirectory = resolve('dist/client'), database?: WorldDatabase, ai?:AiScheduler, aiSettings?:RuntimeAiSettings,services:{clock?:SimulationClock;interrogation?:InterrogationService;investigations?:InvestigationService}={}) {
+export function createApp(clientDirectory = resolve('dist/client'), database?: WorldDatabase, ai?:AiScheduler, aiSettings?:RuntimeAiSettings,services:{clock?:SimulationClock;interrogation?:InterrogationService;investigations?:InvestigationService;influence?:InfluenceService}={}) {
   const app = express();
   app.disable('x-powered-by');
   app.use(express.json({ limit: '16kb' }));
@@ -38,6 +40,7 @@ export function createApp(clientDirectory = resolve('dist/client'), database?: W
     app.use('/api/interrogations',interrogationRouter(database,services.interrogation));
     app.use('/api/archives',archivesRouter(database));
     app.use('/api/investigations',investigationsRouter(database,services.investigations));
+    app.use('/api/influence',influenceRouter(database,services.influence));
     if(ai)app.use('/api/admin/ai',aiRouter(database,ai,aiSettings));
   }
   app.use('/api', (_req, res) => { res.status(404).json({ error: 'Not found' }); });
