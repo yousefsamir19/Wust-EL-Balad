@@ -7,6 +7,7 @@ import { AiScheduler } from './ai/scheduler.js';
 import { envBudget } from './ai/config.js';
 import { RuntimeAiSettings } from './ai/settings.js';
 import { attachCitizenReasoning } from './citizens/reasoning.js';
+import { InterrogationService } from './interrogation/service.js';
 
 const port = Number(process.env.PORT ?? 3000);
 if (!Number.isInteger(port) || port < 1 || port > 65535) {
@@ -16,7 +17,8 @@ const db = openWorld();
 const ai=new AiScheduler([],{requestBudget:envBudget('AI_REQUEST_BUDGET_PER_MINUTE',20),tokenBudget:envBudget('AI_TOKEN_BUDGET_PER_MINUTE',30000),timeoutMs:envBudget('AI_TIMEOUT_MS',5000)});
 const aiSettings=new RuntimeAiSettings(db,ai);
 const clock = new SimulationClock(db, { onError: (error) => { console.error(error.message); shutdown(1); } });
-const server = createApp(undefined, db,ai,aiSettings,{clock}).listen(port, process.env.HOST ?? '0.0.0.0', () => {
+const interrogation=new InterrogationService(db,clock,ai);
+const server = createApp(undefined, db,ai,aiSettings,{clock,interrogation}).listen(port, process.env.HOST ?? '0.0.0.0', () => {
   console.log(`Wust El Balad listening on port ${port}`);
   clock.start();
 });
@@ -29,6 +31,7 @@ function shutdown(code: number) {
   closing = true;
   unsubscribeAiPresence();
   reasoning.stop();
+  interrogation.stop();
   ai.stop();
   clock.stop();
   realtime.close();

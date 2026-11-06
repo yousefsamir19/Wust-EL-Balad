@@ -1,0 +1,13 @@
+import { Router } from 'express';
+import { randomUUID } from 'node:crypto';
+import { rateLimit } from 'express-rate-limit';
+import type { WorldDatabase } from '../db/index.js';
+import { requirePlayer } from '../auth/session.js';
+import type { InterrogationService } from './service.js';
+import type { InterrogationRecord } from '../../../shared/interrogation.js';
+export function interrogationRouter(db:WorldDatabase,service?:InterrogationService){const router=Router();router.use(requirePlayer(db));
+  router.get('/',(req,res)=>{const citizen=req.query.citizenId,limit=req.query.limit===undefined?20:Number(req.query.limit);if(typeof citizen!=='string'||!db.prepare('SELECT id FROM citizens WHERE id=?').get(citizen)||!Number.isInteger(limit)||limit<1||limit>50){res.status(400).json({error:'Valid citizenId and limit are required'});return;}const items=db.prepare('SELECT id,citizen_id AS citizenId,question,answer,basis,status,game_time_ms AS gameTimeMs,created_at AS createdAt,source FROM interrogations WHERE player_id=? AND citizen_id=? ORDER BY created_at DESC,id DESC LIMIT ?').all(res.locals.player.id,citizen,limit) as InterrogationRecord[];res.json({items:items.reverse()});});
+  const limiter=rateLimit({windowMs:60000,limit:20,keyGenerator:(_req,res)=>String(res.locals.player.id),standardHeaders:'draft-8',legacyHeaders:false,handler:(_req,res)=>res.status(429).json({error:'Too many questions. Please wait.'})});
+  router.post('/:citizenId',limiter,async(req,res)=>{const body=req.body as Record<string,unknown>|undefined;if(!body||Array.isArray(body)||Object.keys(body).some(k=>!['question','commandId'].includes(k))||typeof body.question!=='string'||!body.question.trim()||body.question.trim().length>1000||Array.from(body.question).some(c=>c.charCodeAt(0)<32&&!['\t','\n','\r'].includes(c))||body.commandId!==undefined&&(typeof body.commandId!=='string'||!/^[A-Za-z0-9_-]{1,64}$/.test(body.commandId))){res.status(400).json({error:'A question of 1–1000 characters is required'});return;}if(!service){res.status(503).json({error:'Interrogation unavailable'});return;}try{const row=await service.ask(String(res.locals.player.id),String(req.params.citizenId),body.question.trim(),String(body.commandId??randomUUID()));res.status(row.status==='pending'?202:200).json(row);}catch(error){const code=error instanceof Error?error.message:'';res.status(code==='not_found'?404:code==='conflict'?409:code==='unauthorized'?401:503).json({error:code==='conflict'?'This request id was already used for another question':code==='not_found'?'Citizen not found':code==='unauthorized'?'Sign in required':'The answer could not be completed. You may retry.'});}});
+  return router;
+}

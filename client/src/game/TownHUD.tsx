@@ -7,11 +7,12 @@ import { CharacterSheet, CitizenPortrait, PixelIcon } from './CharacterSheet';
 import { TownMap } from './TownMap';
 import { AiSettings } from './AiSettings';
 import { ObserverChat,CharacterChat,ImportantEvents } from './ChatPanels';
+import { Interrogation } from './Interrogation';
 import './hud.css';
 
 const core = [{id:'map',label:'Map',icon:'map'},{id:'citizens',label:'Citizens',icon:'citizens'},{id:'events',label:'Events',icon:'events'},{id:'players',label:'Players',icon:'players'},{id:'influence',label:'Influence',icon:'influence'}];
 const titles: Record<string,string> = { 'ai-settings':'AI Settings','character-chat':'Character Chat','observer-chat':'Observer Chat',interrogation:'Interrogation',investigation:'Investigation',rumors:'Rumors',leaderboard:'Leaderboard',timeline:'Town Archives',newspaper:'The Downtown Gazette',profile:'Player Profile',events:'Important Events',players:'Observers',influence:'Influence' };
-const coming: Record<string,number> = { interrogation:15,investigation:17,rumors:19,leaderboard:21,timeline:16,newspaper:16 };
+const coming: Record<string,number> = { investigation:17,rumors:19,leaderboard:21,timeline:16,newspaper:16 };
 export function eventLabel(event: PublicEvent, world: WorldSnapshot) {
   const actor=world.citizens.find((citizen)=>citizen.id===event.actorId)?.name ?? 'Town';
   const target=world.buildings.find((building)=>building.id===event.target)?.name ?? world.citizens.find((citizen)=>citizen.id===event.target)?.name ?? '';
@@ -40,6 +41,7 @@ export function TownHUD({ player: initialPlayer, onBack }: { player:PlayerProfil
     if (view==='ai-settings') return player.role==='admin'?<AiSettings/>:<p>Admin access required.</p>;
     if(view==='observer-chat')return <ObserverChat revision={observerRevision}/>;
     if(view==='character-chat')return <CharacterChat citizenId={selectedId??world!.citizens[0].id} citizens={world!.citizens} onCitizenChange={setSelectedId} revision={characterRevision}/>;
+    if(view==='interrogation')return <Interrogation citizenId={selectedId??world!.citizens[0].id} citizens={world!.citizens} onCitizenChange={setSelectedId}/>;
     if (coming[view]) return <><h2>{titles[view]}</h2><p className="quiet">This gameplay panel will be implemented in Task {coming[view]}.</p></>;
     if (view==='events') return <><ImportantEvents revision={importantRevision}/><button onClick={()=>setView('timeline')}>Timeline</button><button onClick={()=>setView('newspaper')}>Newspaper</button><button onClick={()=>setView('investigation')}>Investigate</button></>;
     if (view==='players') return <><h2>Observers</h2><p>{world!.playerCount}/6 players connected.</p><p className="quiet">AI citizens cannot see player discussion.</p><button onClick={()=>setView('observer-chat')}>Observer Chat</button><button onClick={()=>setView('profile')}>Profile</button><button onClick={()=>setView('leaderboard')}>Leaderboard</button></>;

@@ -1,0 +1,22 @@
+.interrogation { display:flex;flex-direction:column;min-width:0;min-height:0;height:100%;color:#f2e0b6;font-family:'VT323',monospace;font-size:21px; }
+.interrogation header { display:flex;gap:14px;align-items:center;flex:0 0 auto; }
+.interrogation header canvas { width:96px;height:96px;flex:0 0 96px;image-rendering:pixelated;background:#10232d;border:3px solid #c8a269; }
+.interrogation header>div { min-width:0;flex:1; }
+.interrogation h2 { font-size:11px;line-height:1.7;overflow-wrap:anywhere; }
+.interrogation header p { margin:4px 0; }
+.interrogation label { display:block; }
+.interrogation select,.interrogation textarea { box-sizing:border-box;max-width:100%;width:100%;min-height:44px;background:#10232d;color:inherit;border:2px solid #62756f;font:inherit;padding:5px; }
+.testimony-note { color:#b9c6b2;font-size:18px;line-height:1.1;margin:9px 0; }
+.testimony-history { flex:1 1 auto;min-height:40px;overflow:auto;overscroll-behavior:contain;background:#10232d;padding:8px; }
+.testimony-history article { border-bottom:1px solid #62756f;padding:6px 0; }
+.testimony-history p { margin:5px 0;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.15; }
+.testimony-question { color:#aecde0; }
+.testimony-history small { color:#c8a269; }
+.interrogation form { flex:0 0 auto;padding-top:7px; }
+.interrogation textarea { resize:vertical;max-height:120px; }
+.interrogation button { min-height:44px;min-width:80px;margin-top:5px; }
+.interrogation [role=alert] { color:#ffc1ad;margin:4px 0; }
+.hud .tool-sheet[aria-label=Interrogation] { display:flex;flex-direction:column;gap:5px; }
+.hud .tool-sheet[aria-label=Interrogation]>.sheet-close { float:none;align-self:flex-end;flex:0 0 auto; }
+.hud .tool-sheet[aria-label=Interrogation]>.interrogation { flex:1 1 auto;height:auto; }
+@media(max-width:700px) { .hud .tool-sheet[aria-label=Interrogation] { inset:4px;max-height:none;max-width:none;width:auto;height:auto;transform:none; }.interrogation header canvas { width:64px;height:64px;flex-basis:64px; }.interrogation h2 { font-size:9px; }.interrogation header { gap:8px; } }

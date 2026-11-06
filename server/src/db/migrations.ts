@@ -219,6 +219,9 @@ ALTER TABLE conversations ADD COLUMN stance TEXT NOT NULL DEFAULT 'personal';
 ALTER TABLE conversations ADD COLUMN source_refs TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(source_refs));
 CREATE TABLE citizen_brains (citizen_id TEXT PRIMARY KEY REFERENCES citizens(id),next_think_game_ms INTEGER NOT NULL DEFAULT 0,last_event_id INTEGER NOT NULL DEFAULT 0,pending_id TEXT,last_trigger TEXT NOT NULL DEFAULT 'routine');
 CREATE TABLE citizen_decisions (id TEXT PRIMARY KEY,citizen_id TEXT NOT NULL REFERENCES citizens(id),requested_version INTEGER NOT NULL,completed_game_ms INTEGER NOT NULL,origin TEXT NOT NULL,action TEXT NOT NULL CHECK(json_valid(action)),accepted INTEGER NOT NULL,reason TEXT);
+` }, {version:8,sql:`
+CREATE TABLE interrogations (id TEXT PRIMARY KEY,player_id TEXT NOT NULL REFERENCES players(id),citizen_id TEXT NOT NULL REFERENCES citizens(id),question TEXT NOT NULL,answer TEXT,basis TEXT NOT NULL DEFAULT 'unknown',status TEXT NOT NULL DEFAULT 'pending',game_time_ms INTEGER NOT NULL,created_at TEXT NOT NULL,source TEXT NOT NULL DEFAULT 'local',source_refs TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(source_refs)));
+CREATE INDEX interrogations_player_citizen ON interrogations(player_id,citizen_id,created_at);
 ` }];
 
 export function migrate(db: Database.Database) {
