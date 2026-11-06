@@ -15,6 +15,7 @@ import { streamsRouter,eventStreamRouter } from './streams/index.js';
 import type { SimulationClock } from './simulation/clock.js';
 import { interrogationRouter } from './interrogation/routes.js';
 import type { InterrogationService } from './interrogation/service.js';
+import { archivesRouter } from './archives/routes.js';
 
 export function createApp(clientDirectory = resolve('dist/client'), database?: WorldDatabase, ai?:AiScheduler, aiSettings?:RuntimeAiSettings,services:{clock?:SimulationClock;interrogation?:InterrogationService}={}) {
   const app = express();
@@ -33,6 +34,7 @@ export function createApp(clientDirectory = resolve('dist/client'), database?: W
     app.use('/api/chats',streamsRouter(database,services.clock));
     app.use('/api/events',eventStreamRouter(database));
     app.use('/api/interrogations',interrogationRouter(database,services.interrogation));
+    app.use('/api/archives',archivesRouter(database));
     if(ai)app.use('/api/admin/ai',aiRouter(database,ai,aiSettings));
   }
   app.use('/api', (_req, res) => { res.status(404).json({ error: 'Not found' }); });

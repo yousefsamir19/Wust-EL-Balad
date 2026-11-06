@@ -1,0 +1,22 @@
+.town-archives { display:flex;flex-direction:column;min-width:0;min-height:0;height:100%;font:21px 'VT323',monospace;color:#f2e0b6; }
+.town-archives header { flex:0 0 auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px; }
+.town-archives h2 { width:100%;font-size:12px;line-height:1.8; }
+.town-archives input { width:82px;min-height:44px;font:inherit;box-sizing:border-box;background:#10232d;color:inherit;border:2px solid #62756f;padding:5px; }
+.town-archives button { min-height:44px;font:inherit; }
+.archive-body { flex:1 1 auto;min-height:50px;overflow:auto;overscroll-behavior:contain;padding:8px; }
+.archive-body article { padding:12px 2px;border-bottom:2px solid #62756f; }
+.archive-body p { overflow-wrap:anywhere;white-space:pre-wrap;line-height:1.25; }
+.archive-body small,.edition-meta { color:#c8a269; }
+.archive-note { font-size:18px; }
+.paper-view .archive-body { background:#e8d4aa;color:#302c27;border:3px double #665748;padding:18px;font-family:Georgia,serif;font-size:17px; }
+.paper-view h3 { text-align:center;font-family:Georgia,serif;font-size:28px;line-height:1.1;margin:12px 0;border-top:3px double #665748;border-bottom:3px double #665748;padding:12px 0; }
+.paper-view .edition-meta { text-align:center;color:#584b37;font-size:14px; }
+.paper-view .archive-body small { color:#6e4a30;font-size:13px; }
+.paper-view .archive-body article { border-color:#9f8b68; }
+.paper-view .archive-body button { font:19px 'VT323',monospace;background:#d2b982;color:#302c27;border:2px solid #665748; }
+.causal-focus { background:#31434b;outline:2px solid #e2bf69; }
+.town-archives [role=alert] { color:#ffc1ad; }
+.hud .tool-sheet[aria-label='Town Archives'],.hud .tool-sheet[aria-label='The Downtown Gazette'] { display:flex;flex-direction:column;gap:5px; }
+.hud .tool-sheet[aria-label='Town Archives']>.sheet-close,.hud .tool-sheet[aria-label='The Downtown Gazette']>.sheet-close { float:none;align-self:flex-end;flex:0 0 auto; }
+.hud .tool-sheet[aria-label='Town Archives']>.town-archives,.hud .tool-sheet[aria-label='The Downtown Gazette']>.town-archives { flex:1 1 auto;height:auto; }
+@media(max-width:700px) { .hud .tool-sheet[aria-label='Town Archives'],.hud .tool-sheet[aria-label='The Downtown Gazette'] { inset:4px;max-height:none;max-width:none;width:auto;height:auto;transform:none; }.town-archives h2 { font-size:10px; }.paper-view .archive-body { padding:10px; }.paper-view h3 { font-size:23px; } }

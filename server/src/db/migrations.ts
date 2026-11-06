@@ -222,6 +222,8 @@ CREATE TABLE citizen_decisions (id TEXT PRIMARY KEY,citizen_id TEXT NOT NULL REF
 ` }, {version:8,sql:`
 CREATE TABLE interrogations (id TEXT PRIMARY KEY,player_id TEXT NOT NULL REFERENCES players(id),citizen_id TEXT NOT NULL REFERENCES citizens(id),question TEXT NOT NULL,answer TEXT,basis TEXT NOT NULL DEFAULT 'unknown',status TEXT NOT NULL DEFAULT 'pending',game_time_ms INTEGER NOT NULL,created_at TEXT NOT NULL,source TEXT NOT NULL DEFAULT 'local',source_refs TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(source_refs)));
 CREATE INDEX interrogations_player_citizen ON interrogations(player_id,citizen_id,created_at);
+` }, {version:9,sql:`
+CREATE TABLE chronicle_sources(day INTEGER PRIMARY KEY REFERENCES closed_days(day),closed_game_ms INTEGER NOT NULL,snapshot_hash TEXT NOT NULL,events TEXT NOT NULL CHECK(json_valid(events)));
 ` }];
 
 export function migrate(db: Database.Database) {
