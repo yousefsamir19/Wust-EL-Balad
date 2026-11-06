@@ -1,9 +1,10 @@
-import { MAP_SIZE, type TilePoint, type TownBuilding } from '../../../shared/world.js';
+import { MAP_SIZE, TREE_POSITIONS, LAMP_POSITIONS, type TilePoint, type TownBuilding } from '../../../shared/world.js';
 
 export const tileKey = (point: TilePoint) => `${point.x},${point.y}`;
 export function walkable(point: TilePoint, buildings: TownBuilding[]) {
   if (!Number.isInteger(point.x) || !Number.isInteger(point.y) || point.x < 0 || point.y < 0 || point.x >= MAP_SIZE.width || point.y >= MAP_SIZE.height) return false;
   if (point.x >= 72 && point.y < 24) return false;
+  if ([...TREE_POSITIONS, ...LAMP_POSITIONS].some((position) => position.x === point.x && position.y === point.y)) return false;
   return !buildings.some((building) => building.type !== 'square' && point.x >= building.x && point.x < building.x + building.width && point.y >= building.y && point.y < building.y + building.height);
 }
 

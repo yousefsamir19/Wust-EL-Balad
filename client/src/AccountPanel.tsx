@@ -3,7 +3,7 @@ import type { PlayerProfile } from '../../shared/auth';
 import { PixelAvatar } from './game/AssetGallery';
 import { LiveStatus } from './realtime/LiveStatus';
 
-export function AccountPanel() {
+export function AccountPanel({ onEnterTown, onProfileChange }: { onEnterTown?: (player: PlayerProfile) => void; onProfileChange?: (player: PlayerProfile) => void } = {}) {
   const [player, setPlayer] = useState<PlayerProfile | null>(null);
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [error, setError] = useState('');
@@ -12,6 +12,7 @@ export function AccountPanel() {
   const [avatar, setAvatar] = useState(0);
   function showProfile(profile: PlayerProfile) {
     setPlayer(profile); setUsername(profile.username); setAvatar(profile.avatar);
+    onProfileChange?.(profile);
   }
   useEffect(() => {
     let active = true;
@@ -51,6 +52,7 @@ export function AccountPanel() {
       {player && <div className="mt-3"><PixelAvatar avatar={avatar} label={`${player.username}'s selected observer avatar`} /></div>}
       {player && <p className="mt-2">{player.role} · Influence: {player.influence}</p>}
       {player && <LiveStatus />}
+      {player && onEnterTown && <button className="mt-3" onClick={() => onEnterTown(player)}>Enter town</button>}
       <form onSubmit={submit} className="mt-4 flex flex-col gap-3">
         <label>Username<input key={player ? 'profile' : 'credentials'} name="username" required minLength={3} maxLength={24} pattern="[A-Za-z0-9_]+" autoComplete="username" {...(player ? { value: username, onChange: (e) => setUsername(e.target.value) } : {})} /></label>
         {!player && <label>Password<input name="password" type="password" required minLength={mode === 'signup' ? 10 : 1} maxLength={128} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} /></label>}
