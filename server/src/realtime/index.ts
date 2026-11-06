@@ -19,6 +19,8 @@ export function attachRealtime(server: HttpServer, db: WorldDatabase, clock: Sim
   const count = () => new Set([...io.sockets.sockets.values()].filter((socket) => socket.data.role === 'player').map((socket) => socket.data.playerId)).size;
   let previous = projectWorld(db, 0);
   let eventCursor = previous.events.at(-1)?.id ?? 0;
+  let observerCursor=(db.prepare('SELECT COALESCE(MAX(id),0) n FROM observer_messages').get() as {n:number}).n;
+  let characterCursor=(db.prepare('SELECT COALESCE(MAX(id),0) n FROM conversations').get() as {n:number}).n;
   io.use((socket, next) => {
     const player = playerFromRequest(db, socket.request as Request);
     if (!player) { next(new Error('Login required')); return; }
@@ -54,6 +56,10 @@ export function attachRealtime(server: HttpServer, db: WorldDatabase, clock: Sim
     if (events.length) eventCursor = events.at(-1)!.id;
     previous = current;
     io.emit('world:delta', delta);
+    const observer=(db.prepare('SELECT COALESCE(MAX(id),0) n FROM observer_messages').get() as {n:number}).n;
+    if(observer>observerCursor){observerCursor=observer;io.emit('chat:observer',{lastId:observer});}
+    const character=(db.prepare('SELECT COALESCE(MAX(id),0) n FROM conversations').get() as {n:number}).n;
+    if(character>characterCursor){characterCursor=character;io.emit('chat:character',{lastId:character});}
   });
   return { io, close() { unsubscribe(); io.disconnectSockets(true); io.close(); } };
 }

@@ -6,11 +6,14 @@ import { applyDelta } from './reconcile';
 export function useWorld() {
   const [world, setWorld] = useState<WorldSnapshot | null>(null);
   const [status, setStatus] = useState('Connecting');
+  const [observerRevision,setObserverRevision]=useState(0),[characterRevision,setCharacterRevision]=useState(0);
   useEffect(() => {
     const socket = io({ withCredentials: true });
     let current: WorldSnapshot | null = null;
     let firstSnapshot = true;
-    socket.on('connect', () => { firstSnapshot = true; setStatus('Synchronizing'); });
+    socket.on('connect', () => { firstSnapshot = true; setStatus('Synchronizing');setObserverRevision(v=>v+1);setCharacterRevision(v=>v+1); });
+    socket.on('chat:observer',()=>setObserverRevision(v=>v+1));
+    socket.on('chat:character',()=>setCharacterRevision(v=>v+1));
     socket.on('world:snapshot', (snapshot: WorldSnapshot) => {
       if (!firstSnapshot && current && snapshot.version < current.version) return;
       firstSnapshot = false; current = snapshot; setWorld(snapshot); setStatus('Live');
@@ -27,7 +30,7 @@ export function useWorld() {
     socket.on('connect_error', (error) => setStatus(error.message === 'Login required' ? 'Login required' : 'Reconnecting'));
     return () => { socket.disconnect(); };
   }, []);
-  return { world, status };
+  return { world, status,observerRevision,characterRevision };
 }
 export function timeLabel(minute: number) {
   return `${Math.floor(minute / 60).toString().padStart(2, '0')}:${Math.floor(minute % 60).toString().padStart(2, '0')}`;

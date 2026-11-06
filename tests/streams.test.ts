@@ -1,0 +1,53 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { io } from 'socket.io-client';
+import { openWorld } from '../server/src/db/index.js';
+import { createApp } from '../server/src/app.js';
+import { SimulationClock } from '../server/src/simulation/clock.js';
+import { attachRealtime } from '../server/src/realtime/index.js';
+import { captureCitizenFrame } from '../server/src/citizens/actions.js';
+import { projectWorld } from '../server/src/realtime/projection.js';
+import { activeSpeech,publicEmote } from '../client/src/game/overlays.js';
+const pause=(ms:number)=>new Promise(r=>setTimeout(r,ms));
+async function harness(){const db=openWorld(':memory:'),clock=new SimulationClock(db),server=createApp(undefined,db,undefined,undefined,{clock}).listen(0,'127.0.0.1');await new Promise<void>(r=>server.once('listening',r));const address=server.address();assert.ok(address&&typeof address!=='string');const base=`http://127.0.0.1:${address.port}`,realtime=attachRealtime(server,db,clock);
+  async function signup(username:string){const r=await fetch(`${base}/api/auth/signup`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username,password:'password-1234',confirmPassword:'password-1234'})});assert.equal(r.status,201);return r.headers.get('set-cookie')!.split(';')[0];}
+  const cookie=await signup('ObserverOne'),otherCookie=await signup('ObserverTwo');
+  const request=(path:string,body?:unknown,auth:string|null=cookie)=>fetch(`${base}${path}`,{method:body===undefined?'GET':'POST',headers:{...(auth?{cookie:auth}:{}),...(body===undefined?{}:{'content-type':'application/json'})},...(body===undefined?{}:{body:JSON.stringify(body)})});
+  return {db,clock,server,base,realtime,cookie,otherCookie,request,async close(){clock.stop();realtime.close();if(server.listening)await new Promise<void>(r=>server.close(()=>r()));db.close();}};
+}
+
+test('observer chat is authenticated, transactional, retry-idempotent, ownership-bound, and absent from NPC memory',async()=>{
+  const h=await harness();try{assert.equal((await h.request('/api/chats/observer',undefined,null)).status,401);h.clock.commitCommand('warmup',()=>true);const before=(h.db.prepare('SELECT count(*) n FROM memories').get() as {n:number}).n;
+    const body={text:'HUMAN_ONLY_MARKER: do not teach this to citizens.',commandId:'same-command'},r=await h.request('/api/chats/observer',body);assert.equal(r.status,201);const row=await r.json() as {id:number;username:string;text:string;gameTimeMs:number};assert.equal(row.username,'ObserverOne');assert.equal(row.gameTimeMs,h.clock.state().game_time_ms);assert.equal((await h.request('/api/chats/observer',body)).status,201);assert.equal((h.db.prepare('SELECT count(*) n FROM observer_messages').get() as {n:number}).n,1);assert.equal((await h.request('/api/chats/observer',{...body,text:'different'})).status,409);assert.equal((await h.request('/api/chats/observer',{...body,text:'Other observer'},h.otherCookie)).status,201);assert.equal((h.db.prepare('SELECT count(*) n FROM observer_messages').get() as {n:number}).n,2);assert.equal((h.db.prepare('SELECT count(*) n FROM memories').get() as {n:number}).n,before);assert.ok(!JSON.stringify(captureCitizenFrame(h.db,h.clock.state(),'karim')).includes('HUMAN_ONLY_MARKER'));
+    assert.equal((await h.request('/api/chats/observer',{text:' ',commandId:'empty'})).status,400);assert.equal((await h.request('/api/chats/observer',{text:'x'.repeat(1001)})).status,400);assert.equal((await h.request('/api/chats/observer',{text:'spoof',playerId:'someone'})).status,400);
+  }finally{await h.close();}
+});
+
+test('both participants receive the full read-only dialogue with day grouping, never private lie/source/brain metadata',async()=>{
+  const h=await harness();try{const event=h.db.prepare("INSERT INTO events(world_version,game_time_ms,type,actor_id,target,visibility,details) VALUES(0,86400001,'citizen_spoke','karim','mostafa','private',?)").run(JSON.stringify({text:'An uncertain utterance.'}));h.db.prepare('INSERT INTO conversations(game_time_ms,speaker_id,recipient_id,text,visibility,source_event_id,stance,source_refs) VALUES(?,?,?,?,?,?,?,?)').run(86400001,'karim','mostafa','An uncertain utterance.','private',event.lastInsertRowid,'lie','["PRIVATE_SOURCE_REFERENCE"]');
+    const a=await(await h.request('/api/chats/characters/karim')).json() as {items:{id:number;day:number;text:string}[]},b=await(await h.request('/api/chats/characters/mostafa')).json() as typeof a,c=await(await h.request('/api/chats/characters/laila')).json() as typeof a;assert.equal(a.items.length,1);assert.deepEqual(a.items,b.items);assert.equal(a.items[0].day,2);assert.equal(c.items.length,0);const serialized=JSON.stringify(a);assert.ok(!serialized.includes('PRIVATE_SOURCE_REFERENCE'));assert.ok(!serialized.includes('stance'));assert.ok(!serialized.includes('truth_status'));assert.ok(!serialized.includes('goals'));assert.equal((await h.request('/api/chats/characters/missing')).status,404);assert.equal((await h.request('/api/chats/characters/karim',{text:'Cannot write NPC chat'})).status,404);
+  }finally{await h.close();}
+});
+
+test('cursor pages are ordered, bounded, and non-overlapping; public events exclude routine and private facts',async()=>{
+  const h=await harness();try{const player=(h.db.prepare("SELECT id FROM players WHERE username='ObserverOne'").get() as {id:string}).id;for(let i=0;i<45;i++)h.db.prepare('INSERT INTO observer_messages(player_id,text,created_at,game_time_ms) VALUES(?,?,?,?)').run(player,`Message ${i}`,new Date().toISOString(),i<20?28800000:86400000);
+    const first=await(await h.request('/api/chats/observer?limit=20')).json() as {items:{id:number;day:number}[];olderCursor:number;hasMore:boolean};assert.equal(first.items.length,20);assert.equal(first.hasMore,true);assert.deepEqual(first.items.map(r=>r.id),first.items.map(r=>r.id).sort((a,b)=>a-b));const older=await(await h.request(`/api/chats/observer?before=${first.olderCursor}&limit=20`)).json() as typeof first;assert.ok(older.items.every(row=>row.id<first.items[0].id));const after=await(await h.request(`/api/chats/observer?after=${first.items[0].id}&limit=3`)).json() as typeof first;assert.equal(after.items.length,3);assert.ok(after.items.every(row=>row.id>first.items[0].id));assert.equal((await h.request('/api/chats/observer?limit=101')).status,400);assert.equal((await h.request('/api/chats/observer?before=3&after=2')).status,400);assert.equal((await h.request('/api/chats/observer?before=bad')).status,400);
+    for(const [type,importance,visibility] of [['citizen_arrived',0,'public'],['debt_overdue',60,'public'],['secret_private',100,'private']] as const)h.db.prepare('INSERT INTO events(world_version,game_time_ms,type,actor_id,target,importance,visibility,details) VALUES(?,?,?,?,?,?,?,?)').run(0,28800000,type,'karim','mostafa',importance,visibility,JSON.stringify({privateSecret:'NEVER_EXPOSE_THIS',text:type==='debt_overdue'?'A public overdue obligation.':undefined}));const events=await(await h.request('/api/events?minImportance=0')).json() as {items:{type:string;importance:number}[]};assert.equal(events.items.length,1);assert.equal(events.items[0].type,'debt_overdue');assert.ok(!JSON.stringify(events).includes('NEVER_EXPOSE_THIS'));
+  }finally{await h.close();}
+});
+
+test('separate post-commit Socket.IO notifications do not contaminate world/NPC data and reconnect histories catch up',async()=>{
+  const h=await harness(),socket=io(h.base,{transports:['websocket'],extraHeaders:{Cookie:h.cookie},autoConnect:false});try{socket.connect();await new Promise<void>((resolve,reject)=>{socket.once('connect',resolve);socket.once('connect_error',reject);});const observerEvents:number[]=[],characterEvents:number[]=[];socket.on('chat:observer',(message:{lastId:number})=>observerEvents.push(message.lastId));socket.on('chat:character',(message:{lastId:number})=>characterEvents.push(message.lastId));await h.request('/api/chats/observer',{text:'One observer message',commandId:'socket-message'});await pause(30);assert.equal(observerEvents.length,1);assert.equal(characterEvents.length,0);
+    h.clock.commitCommand('private-dialogue',(db,state)=>{db.prepare("INSERT INTO conversations(game_time_ms,speaker_id,recipient_id,text,visibility) VALUES(?,'karim','mostafa','A private spoken line.','private')").run(state.game_time_ms);return true;});await pause(30);assert.equal(characterEvents.length,1);assert.equal(observerEvents.length,1);assert.ok(!JSON.stringify(projectWorld(h.db,2)).includes('One observer message'));
+    const last=observerEvents[0];socket.disconnect();await h.request('/api/chats/observer',{text:'While the observer was disconnected',commandId:'missed-message'},h.otherCookie);const caught=await(await h.request(`/api/chats/observer?after=${last}`)).json() as {items:{text:string}[]};assert.equal(caught.items.length,1);assert.equal(caught.items[0].text,'While the observer was disconnected');
+  }finally{socket.disconnect();await h.close();}
+});
+
+test('banned accounts lose stream access and observer posting is rate-limited',async()=>{
+  const h=await harness();try{for(let i=0;i<20;i++)assert.equal((await h.request('/api/chats/observer',{text:'Small message',commandId:`limit-${i}`})).status,201);assert.equal((await h.request('/api/chats/observer',{text:'Too many',commandId:'over-limit'})).status,429);h.db.prepare("UPDATE players SET banned=1 WHERE username='ObserverTwo'").run();assert.equal((await h.request('/api/chats/observer',undefined,h.otherCookie)).status,401);assert.equal((await h.request('/api/events',undefined,h.otherCookie)).status,401);assert.equal((await h.request('/api/chats/characters/karim',undefined,h.otherCookie)).status,401);
+  }finally{await h.close();}
+});
+
+test('map overlays pick only the newest live speech and emotes depend solely on public state',()=>{
+  const db=openWorld(':memory:');try{const world=projectWorld(db,0);world.gameTimeMs=100000;world.events=[{id:1,gameTimeMs:99999,type:'citizen_spoke',actorId:'karim',target:'mostafa',amount:null,importance:0,text:'Old'},{id:2,gameTimeMs:100000,type:'citizen_spoke',actorId:'karim',target:'mostafa',amount:null,importance:0,text:'Newest'},{id:3,gameTimeMs:1,type:'citizen_spoke',actorId:'mostafa',target:'karim',amount:null,importance:0,text:'Expired'}];assert.deepEqual(activeSpeech(world).map(e=>e.id),[2]);const citizen=world.citizens[0];assert.equal(publicEmote({...citizen,activity:'sleeping'}),'zZ');assert.equal(publicEmote({...citizen,mood:'Anxious'}),'!');assert.equal(publicEmote({...citizen,mood:'Wary'}),'?');assert.equal(publicEmote({...citizen,mood:'Calm',activity:'working'}),null);}finally{db.close();}
+});

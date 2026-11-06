@@ -1,0 +1,4 @@
+import type { WorldSnapshot,PublicEvent } from '../../../shared/realtime';
+import type { VisibleCitizen } from '../../../shared/world';
+export function activeSpeech(world:WorldSnapshot):PublicEvent[]{const latest=new Map<string,PublicEvent>();for(const event of world.events){if(event.type==='citizen_spoke'&&event.actorId&&event.text&&world.gameTimeMs>=event.gameTimeMs&&world.gameTimeMs-event.gameTimeMs<=32000){const old=latest.get(event.actorId);if(!old||old.id<event.id)latest.set(event.actorId,event);}}return [...latest.values()];}
+export function publicEmote(citizen:VisibleCitizen):string|null{if(citizen.activity==='sleeping')return 'zZ';if(['Hungry','Anxious','Resentful'].includes(citizen.mood))return '!';if(['Wary','Lonely'].includes(citizen.mood))return '?';if(citizen.mood==='Content')return '+';return null;}

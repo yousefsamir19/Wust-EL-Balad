@@ -6,6 +6,7 @@ import { texture } from './textures';
 import { LAMP_POSITIONS, MAP_SIZE, TREE_POSITIONS, type VisibleCitizen } from '../../../shared/world';
 import type { WorldSnapshot } from '../../../shared/realtime';
 import type { Direction } from './pixels';
+import { activeSpeech,publicEmote } from './overlays';
 
 export interface TownMapProps {
   world: WorldSnapshot;
@@ -120,10 +121,6 @@ function midpoint(a: TownPoint, b: TownPoint): TownPoint {
   return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
 }
 
-function eventAge(world: WorldSnapshot, gameTimeMs: number): boolean {
-  return Math.abs(world.gameTimeMs - gameTimeMs) <= 32000;
-}
-
 function shortText(value: string, length: number): string {
   const clean = value.replace(/\s+/g, ' ').trim();
   return clean.length > length ? `${clean.slice(0, Math.max(0, length - 1))}…` : clean;
@@ -229,12 +226,13 @@ function drawMap(
     const image = spriteTexture(citizen, frame, motion.sprites);
     context.drawImage(image, clampPixel(citizen.x * TILE_SIZE), clampPixel(citizen.y * TILE_SIZE - 8));
   }
-  for (const event of world.events) {
-    if (event.type !== 'citizen_spoke' || !event.text || !eventAge(world, event.gameTimeMs)) continue;
-    const speaker = positions.find((citizen) => citizen.id === event.actorId);
-    if (speaker) drawSpeech(context, speaker, event.text);
-  }
   drawLighting(context, world);
+  const speech=activeSpeech(world),speaking=new Set(speech.map(e=>e.actorId));
+  for (const event of speech) {
+    const speaker = positions.find((citizen) => citizen.id === event.actorId);
+    if (speaker) drawSpeech(context, speaker, event.text!);
+  }
+  for(const citizen of positions){const emote=publicEmote(citizen);if(emote&&!speaking.has(citizen.id)){context.fillStyle='#f9e8b0';context.fillRect(Math.round(citizen.x*TILE_SIZE+4),Math.round(citizen.y*TILE_SIZE-24),16,12);context.fillStyle='#2c3037';context.font='12px "VT323", monospace';context.fillText(emote,Math.round(citizen.x*TILE_SIZE+8),Math.round(citizen.y*TILE_SIZE-14));}}
   const selected = positions.find((citizen) => citizen.id === selectedId);
   if (selected) drawSelected(context, selected, camera.zoom);
   context.restore();

@@ -16,7 +16,7 @@ const db = openWorld();
 const ai=new AiScheduler([],{requestBudget:envBudget('AI_REQUEST_BUDGET_PER_MINUTE',20),tokenBudget:envBudget('AI_TOKEN_BUDGET_PER_MINUTE',30000),timeoutMs:envBudget('AI_TIMEOUT_MS',5000)});
 const aiSettings=new RuntimeAiSettings(db,ai);
 const clock = new SimulationClock(db, { onError: (error) => { console.error(error.message); shutdown(1); } });
-const server = createApp(undefined, db,ai,aiSettings).listen(port, process.env.HOST ?? '0.0.0.0', () => {
+const server = createApp(undefined, db,ai,aiSettings,{clock}).listen(port, process.env.HOST ?? '0.0.0.0', () => {
   console.log(`Wust El Balad listening on port ${port}`);
   clock.start();
 });
