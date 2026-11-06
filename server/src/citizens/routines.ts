@@ -3,6 +3,9 @@ import type { WorldState } from '../simulation/clock.js';
 import { entrance, findPath, tileKey, walkable } from '../simulation/navigation.js';
 import type { TilePoint, TownBuilding, VisibleCitizen } from '../../../shared/world.js';
 import { consumeMeal, economicArrival, economicChoice } from '../economy/actions.js';
+import { applyCitizenAction,captureCitizenFrame } from './actions.js';
+import { enrichDialogue } from './policy.js';
+import { waitAction } from './reasoning-types.js';
 
 interface Needs { hunger: number; energy: number; social: number }
 interface Citizen extends TilePoint {
@@ -122,25 +125,16 @@ export function advanceCitizens(db: WorldDatabase, world: WorldState, realElapse
     if (previousBuilding && previousBuilding !== citizen.building_id) event('citizen_departed', citizen, previousBuilding, {});
     if (citizen.building_id && previousBuilding !== citizen.building_id) event('citizen_arrived', citizen, citizen.building_id, { activity: citizen.activity });
     if (blocked && reconsider) event('route_blocked', citizen, routine.target_building_id, {});
-    if (citizen.activity === 'socializing' && routine.next_speech_game_ms <= world.game_time_ms) {
-      const scores=db.prepare('SELECT other_id,trust,affection,fear,grudge,suspicion FROM relationships WHERE citizen_id=?').all(citizen.id) as {other_id:string;trust:number;affection:number;fear:number;grudge:number;suspicion:number}[];
-      const ranked=new Map(scores.map(relation=>[relation.other_id,relation.trust+relation.affection-relation.fear-relation.grudge-relation.suspicion]));
-      const other = citizens.filter((candidate) => candidate.id !== citizen.id && candidate.building_id === citizen.building_id && Math.abs(candidate.x - citizen.x) + Math.abs(candidate.y - citizen.y) <= 3).sort((a,b)=>(ranked.get(b.id)??0)-(ranked.get(a.id)??0))[0];
-      if (other) {
-        const relation = scores.find(score=>score.other_id===other.id)!;
-        const text = contextualDialogue(citizen, other, needs, relation.trust, relation);
-        const result = event('citizen_spoke', citizen, other.id, { text });
-        db.prepare('INSERT INTO conversations (game_time_ms,speaker_id,recipient_id,text,source_event_id) VALUES (?,?,?,?,?)')
-          .run(world.game_time_ms, citizen.id, other.id, text, result.lastInsertRowid);
-        routine.next_speech_game_ms = world.game_time_ms + 3600000;
-      }
-    }
     const thoughts = target ? `I want to ${routine.goal_action} at ${target.name}.` : 'I need to find a safe route.';
     db.prepare('UPDATE citizens SET x=?,y=?,building_id=?,activity=?,needs=?,mood=?,thoughts=? WHERE id=?')
       .run(citizen.x, citizen.y, citizen.building_id, citizen.activity, JSON.stringify(needs), citizen.mood, thoughts, citizen.id);
     db.prepare(`UPDATE citizen_routines SET goal_action=?,target_building_id=?,path=?,next_decision_game_ms=?,movement_remainder=?,next_speech_game_ms=?,direction=? WHERE citizen_id=?`)
       .run(routine.goal_action, routine.target_building_id, JSON.stringify(path), routine.next_decision_game_ms, routine.movement_remainder, routine.next_speech_game_ms, routine.direction, citizen.id);
     economicArrival(db, world, citizen.id);
+    if(citizen.activity==='socializing'&&routine.next_speech_game_ms<=world.game_time_ms){
+      const frame=captureCitizenFrame(db,world,citizen.id,'social_opportunity'),peer=frame.nearby[0],other=peer?citizens.find(p=>p.id===peer.id):undefined;
+      if(peer&&other){const base=contextualDialogue(citizen,other,needs,peer.trust,peer);applyCitizenAction(db,world,frame,{...waitAction(),action:'speak',target:peer.id,...enrichDialogue(frame,peer.id,base)},`routine:${citizen.id}:${world.tick}`);}
+    }
     occupied.add(tileKey(citizen));
   }
 }

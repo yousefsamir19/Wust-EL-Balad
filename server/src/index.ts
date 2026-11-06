@@ -6,6 +6,7 @@ import { attachRealtime } from './realtime/index.js';
 import { AiScheduler } from './ai/scheduler.js';
 import { envBudget } from './ai/config.js';
 import { RuntimeAiSettings } from './ai/settings.js';
+import { attachCitizenReasoning } from './citizens/reasoning.js';
 
 const port = Number(process.env.PORT ?? 3000);
 if (!Number.isInteger(port) || port < 1 || port > 65535) {
@@ -21,11 +22,13 @@ const server = createApp(undefined, db,ai,aiSettings).listen(port, process.env.H
 });
 const realtime = attachRealtime(server, db, clock);
 const unsubscribeAiPresence=clock.subscribe(()=>ai.setActivePlayers(new Set([...realtime.io.sockets.sockets.values()].filter(socket=>socket.data.role==='player').map(socket=>socket.data.playerId)).size));
+const reasoning=attachCitizenReasoning(db,clock,ai);
 let closing = false;
 function shutdown(code: number) {
   if (closing) return;
   closing = true;
   unsubscribeAiPresence();
+  reasoning.stop();
   ai.stop();
   clock.stop();
   realtime.close();
