@@ -3,6 +3,7 @@ import { performance } from 'node:perf_hooks';
 import type { WorldDatabase } from '../db/index.js';
 import { advanceCitizens } from '../citizens/routines.js';
 import { advanceEconomy } from '../economy/lifecycle.js';
+import { advanceSocial } from '../social/engine.js';
 
 export const GAME_DAY_MS = 86400000;
 export interface WorldState { game_time_ms: number; version: number; tick: number }
@@ -70,6 +71,7 @@ export class SimulationClock {
       }
       advanceEconomy(this.db, next, previous);
       advanceCitizens(this.db, next, realElapsedMs, next.game_time_ms - previous.game_time_ms);
+      advanceSocial(this.db, next);
       this.db.prepare('UPDATE world SET game_time_ms = ?, version = ?, tick = ?, updated_at = ? WHERE id = 1')
         .run(next.game_time_ms, next.version, next.tick, new Date().toISOString());
       return next;
@@ -90,6 +92,7 @@ export class SimulationClock {
       const serialized = JSON.stringify(result);
       if (serialized === undefined) throw new Error('Command results must be JSON serializable');
       const version = previous.version + 1;
+      advanceSocial(this.db, { ...previous, version });
       this.db.prepare('UPDATE world SET version = ?, updated_at = ? WHERE id = 1').run(version, new Date().toISOString());
       this.db.prepare('INSERT INTO processed_commands VALUES (?,?,?)').run(id, serialized, version);
       return result;

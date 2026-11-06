@@ -190,6 +190,24 @@ CREATE TABLE economy_days (day INTEGER PRIMARY KEY);
 ALTER TABLE money_transactions ADD COLUMN from_account TEXT NOT NULL DEFAULT '';
 ALTER TABLE money_transactions ADD COLUMN to_account TEXT NOT NULL DEFAULT '';
 CREATE INDEX debts_borrower ON debts(borrower_account,outstanding);
+` }, { version: 5, sql: `
+ALTER TABLE relationships ADD COLUMN secrets_known TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(secrets_known));
+ALTER TABLE memories ADD COLUMN provenance TEXT NOT NULL DEFAULT 'observation';
+ALTER TABLE memories ADD COLUMN confidence INTEGER NOT NULL DEFAULT 100 CHECK(confidence BETWEEN 0 AND 100);
+ALTER TABLE secret_knowledge ADD COLUMN source_event_id INTEGER REFERENCES events(id);
+ALTER TABLE secret_knowledge ADD COLUMN source_citizen_id TEXT REFERENCES citizens(id);
+CREATE TABLE observed_events (
+  citizen_id TEXT NOT NULL REFERENCES citizens(id),event_id INTEGER NOT NULL REFERENCES events(id),
+  mode TEXT NOT NULL,PRIMARY KEY(citizen_id,event_id)
+);
+CREATE TABLE memory_sources (
+  memory_id INTEGER NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
+  event_id INTEGER NOT NULL REFERENCES events(id),PRIMARY KEY(memory_id,event_id)
+);
+CREATE TABLE social_cursor(id INTEGER PRIMARY KEY CHECK(id=1),last_event_id INTEGER NOT NULL);
+CREATE TABLE social_state (
+  citizen_id TEXT PRIMARY KEY REFERENCES citizens(id),last_compaction_day INTEGER NOT NULL,last_decay_game_ms INTEGER NOT NULL
+);
 ` }];
 
 export function migrate(db: Database.Database) {

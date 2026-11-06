@@ -45,7 +45,7 @@ export function seed(db: Database.Database) {
       const secret = `secret-${id}`;
       db.prepare('INSERT INTO secrets (id,owner_id,claim,truth_status) VALUES (?,?,?,?)')
         .run(secret, id, `${name} privately hopes to change something about their working life.`, 'true');
-      db.prepare('INSERT INTO secret_knowledge VALUES (?,?,?)').run(secret, id, 100);
+      db.prepare('INSERT INTO secret_knowledge (secret_id,citizen_id,confidence) VALUES (?,?,?)').run(secret, id, 100);
       db.prepare('INSERT INTO knowledge (citizen_id,kind,claim,confidence,game_time_ms) VALUES (?,?,?,?,?)')
         .run(id, 'belief', 'Steady work can help me achieve my goals.', 70, 28800000);
     }

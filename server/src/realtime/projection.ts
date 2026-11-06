@@ -3,7 +3,7 @@ import type { VisibleCitizen, TownBuilding } from '../../../shared/world.js';
 import type { PublicEvent, WorldSnapshot } from '../../../shared/realtime.js';
 
 export function visibleCitizens(db: WorldDatabase): VisibleCitizen[] {
-  const rows = db.prepare(`SELECT c.id,c.name,c.job,c.x,c.y,c.mood,c.money,c.needs,c.building_id AS buildingId,c.activity,c.appearance,r.direction,
+  const rows = db.prepare(`SELECT c.id,c.name,c.job,c.x,c.y,c.mood,c.money,c.reputation,c.needs,c.building_id AS buildingId,c.activity,c.appearance,r.direction,
     (SELECT balance FROM bank_accounts WHERE citizen_id=c.id) AS savings,
     (SELECT COALESCE(SUM(outstanding),0) FROM debts WHERE borrower_account='citizen:'||c.id) AS debt
     FROM citizens c JOIN citizen_routines r ON r.citizen_id = c.id ORDER BY c.id`).all() as (Omit<VisibleCitizen, 'appearance' | 'needs' | 'publicThought'> & { appearance: string; needs: string })[];

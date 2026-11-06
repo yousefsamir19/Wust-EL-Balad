@@ -5,6 +5,7 @@ import { migrate } from './migrations.js';
 import { seed } from './seed.js';
 import { initializeRoutines } from '../citizens/routines.js';
 import { initializeEconomy } from '../economy/initialize.js';
+import { initializeSocial } from '../social/initialize.js';
 
 export type WorldDatabase = Database.Database;
 export function openWorld(url = process.env.DATABASE_URL ?? 'file:./data/world.db'): WorldDatabase {
@@ -22,6 +23,7 @@ export function openWorld(url = process.env.DATABASE_URL ?? 'file:./data/world.d
     seed(db);
     db.transaction(() => initializeRoutines(db))();
     db.transaction(() => initializeEconomy(db))();
+    db.transaction(() => initializeSocial(db))();
     return db;
   } catch (error) {
     db.close();

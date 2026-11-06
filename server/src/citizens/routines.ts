@@ -40,7 +40,10 @@ export function chooseUtility(citizen: Citizen, needs: Needs, minute: number, sc
   return choices.sort((a, b) => b.score - a.score)[0];
 }
 
-export function contextualDialogue(citizen: Citizen, other: Citizen, needs: Needs, trust: number) {
+export function contextualDialogue(citizen: Citizen, other: Citizen, needs: Needs, trust: number, social?:{fear:number;grudge:number;suspicion:number}) {
+  if(social?.fear&&social.fear>=60)return `${other.name}, I'd like to keep things calm between us.`;
+  if(social?.grudge&&social.grudge>=60)return `${other.name}, I have not forgotten our differences.`;
+  if(social?.suspicion&&social.suspicion>=65)return `${other.name}, I am not ready to believe everything I hear.`;
   if (trust < 35) return `${other.name}, I'd rather keep my personal worries to myself.`;
   if (citizen.money < 30000) return `${other.name}, I need to be careful with my EGP this week.`;
   if (needs.hunger > 45) return `${other.name}, I could use something to eat before heading back to work.`;
@@ -58,7 +61,7 @@ export function advanceCitizens(db: WorldDatabase, world: WorldState, realElapse
   const minute = world.game_time_ms % 86400000 / 60000;
   const event = (type: string, citizen: Citizen, target: string | null, details: Record<string, unknown>) =>
     db.prepare(`INSERT INTO events (world_version,game_time_ms,type,actor_id,target,visibility,details) VALUES (?,?,?,?,?,'public',?)`)
-      .run(world.version, world.game_time_ms, type, citizen.id, target, JSON.stringify(details));
+      .run(world.version, world.game_time_ms, type, citizen.id, target, JSON.stringify({...details,witnessIds:citizens.filter(person=>person.id===citizen.id||person.building_id===citizen.building_id&&Math.abs(person.x-citizen.x)+Math.abs(person.y-citizen.y)<=3).map(person=>person.id)}));
 
   for (const citizen of citizens) {
     const routine = db.prepare('SELECT * FROM citizen_routines WHERE citizen_id = ?').get(citizen.id) as Routine;
@@ -120,10 +123,12 @@ export function advanceCitizens(db: WorldDatabase, world: WorldState, realElapse
     if (citizen.building_id && previousBuilding !== citizen.building_id) event('citizen_arrived', citizen, citizen.building_id, { activity: citizen.activity });
     if (blocked && reconsider) event('route_blocked', citizen, routine.target_building_id, {});
     if (citizen.activity === 'socializing' && routine.next_speech_game_ms <= world.game_time_ms) {
-      const other = citizens.find((candidate) => candidate.id !== citizen.id && candidate.building_id === citizen.building_id && Math.abs(candidate.x - citizen.x) + Math.abs(candidate.y - citizen.y) <= 3);
+      const scores=db.prepare('SELECT other_id,trust,affection,fear,grudge,suspicion FROM relationships WHERE citizen_id=?').all(citizen.id) as {other_id:string;trust:number;affection:number;fear:number;grudge:number;suspicion:number}[];
+      const ranked=new Map(scores.map(relation=>[relation.other_id,relation.trust+relation.affection-relation.fear-relation.grudge-relation.suspicion]));
+      const other = citizens.filter((candidate) => candidate.id !== citizen.id && candidate.building_id === citizen.building_id && Math.abs(candidate.x - citizen.x) + Math.abs(candidate.y - citizen.y) <= 3).sort((a,b)=>(ranked.get(b.id)??0)-(ranked.get(a.id)??0))[0];
       if (other) {
-        const relation = db.prepare('SELECT trust FROM relationships WHERE citizen_id = ? AND other_id = ?').get(citizen.id, other.id) as { trust: number };
-        const text = contextualDialogue(citizen, other, needs, relation.trust);
+        const relation = scores.find(score=>score.other_id===other.id)!;
+        const text = contextualDialogue(citizen, other, needs, relation.trust, relation);
         const result = event('citizen_spoke', citizen, other.id, { text });
         db.prepare('INSERT INTO conversations (game_time_ms,speaker_id,recipient_id,text,source_event_id) VALUES (?,?,?,?,?)')
           .run(world.game_time_ms, citizen.id, other.id, text, result.lastInsertRowid);

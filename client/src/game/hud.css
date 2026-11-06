@@ -87,3 +87,15 @@
 .needs meter::-webkit-meter-optimum-value { background:repeating-linear-gradient(90deg,#cba766 0 7px,#ab884f 7px 8px); border-radius:0; }
 
 @media(max-width:800px) { .map-controls button { min-width:44px; min-height:44px; } }
+
+.social-panel { border-top:2px solid var(--muted);margin-top:14px;padding-top:6px; }
+.social-panel details { border-bottom:1px solid var(--muted);padding:5px 0; }
+.social-panel summary { cursor:pointer;color:var(--gold); }
+.social-panel dl { margin:5px 0; }
+.social-panel dl>div { display:flex;justify-content:space-between;gap:8px; }
+.social-panel dt { text-transform:capitalize;color:var(--muted); }
+.social-panel dd { margin:0; }
+.social-panel article { border-left:2px solid var(--gold);padding-left:7px;margin:12px 0; }
+.social-panel article p { margin:4px 0; }
+.social-panel small { color:var(--muted);font-size:16px; }
+.social-panel p,.social-panel summary { overflow-wrap:anywhere; }
