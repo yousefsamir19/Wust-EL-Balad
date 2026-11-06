@@ -3,6 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { migrate } from './migrations.js';
 import { seed } from './seed.js';
+import { initializeRoutines } from '../citizens/routines.js';
 
 export type WorldDatabase = Database.Database;
 export function openWorld(url = process.env.DATABASE_URL ?? 'file:./data/world.db'): WorldDatabase {
@@ -18,6 +19,7 @@ export function openWorld(url = process.env.DATABASE_URL ?? 'file:./data/world.d
     db.pragma('busy_timeout = 5000');
     migrate(db);
     seed(db);
+    db.transaction(() => initializeRoutines(db))();
     return db;
   } catch (error) {
     db.close();

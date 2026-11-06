@@ -151,6 +151,18 @@ CREATE TABLE simulation_lock (
 CREATE TABLE closed_days (
   day INTEGER PRIMARY KEY, closed_game_ms INTEGER NOT NULL, event_id INTEGER NOT NULL REFERENCES events(id)
 );
+` }, { version: 3, sql: `
+CREATE TABLE citizen_routines (
+  citizen_id TEXT PRIMARY KEY REFERENCES citizens(id), goal_action TEXT NOT NULL DEFAULT 'idle',
+  target_building_id TEXT REFERENCES buildings(id), path TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(path)),
+  next_decision_game_ms INTEGER NOT NULL DEFAULT 0, movement_remainder REAL NOT NULL DEFAULT 0,
+  next_speech_game_ms INTEGER NOT NULL DEFAULT 0, direction TEXT NOT NULL DEFAULT 'down'
+);
+CREATE TABLE schedules (
+  citizen_id TEXT PRIMARY KEY REFERENCES citizens(id),
+  shift_start INTEGER NOT NULL CHECK (shift_start BETWEEN 0 AND 1439),
+  shift_end INTEGER NOT NULL CHECK (shift_end BETWEEN 1 AND 1440)
+);
 ` }];
 
 export function migrate(db: Database.Database) {
