@@ -23,6 +23,7 @@ import type { InfluenceService } from './influence/service.js';
 import { rumorsRouter } from './rumors/routes.js';
 import type { RumorService } from './rumors/service.js';
 import { catchUpRouter } from './catchup/index.js';
+import { leaderboardRouter,playerProfilesRouter } from './players/index.js';
 
 export function createApp(clientDirectory = resolve('dist/client'), database?: WorldDatabase, ai?:AiScheduler, aiSettings?:RuntimeAiSettings,services:{clock?:SimulationClock;interrogation?:InterrogationService;investigations?:InvestigationService;influence?:InfluenceService;rumors?:RumorService}={}) {
   const app = express();
@@ -46,6 +47,8 @@ export function createApp(clientDirectory = resolve('dist/client'), database?: W
     app.use('/api/influence',influenceRouter(database,services.influence));
     app.use('/api/rumors',rumorsRouter(database,services.rumors));
     app.use('/api/catch-up',catchUpRouter(database,services.investigations));
+    app.use('/api/leaderboard',leaderboardRouter(database));
+    app.use('/api/players',playerProfilesRouter(database));
     if(ai)app.use('/api/admin/ai',aiRouter(database,ai,aiSettings));
   }
   app.use('/api', (_req, res) => { res.status(404).json({ error: 'Not found' }); });
