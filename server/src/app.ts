@@ -6,6 +6,7 @@ import type { WorldDatabase } from './db/index.js';
 import { worldRouter } from './http/world.js';
 import { authRouter } from './auth/routes.js';
 import { sameOrigin } from './auth/session.js';
+import { economyRouter } from './economy/routes.js';
 
 export function createApp(clientDirectory = resolve('dist/client'), database?: WorldDatabase) {
   const app = express();
@@ -19,6 +20,7 @@ export function createApp(clientDirectory = resolve('dist/client'), database?: W
     app.use('/api', sameOrigin);
     app.use('/api/auth', authRouter(database));
     app.use('/api/world', worldRouter(database));
+    app.use('/api/economy', economyRouter(database));
   }
   app.use('/api', (_req, res) => { res.status(404).json({ error: 'Not found' }); });
   app.use(express.static(clientDirectory));

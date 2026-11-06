@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import type { WorldDatabase } from '../db/index.js';
 import { advanceCitizens } from '../citizens/routines.js';
+import { advanceEconomy } from '../economy/lifecycle.js';
 
 export const GAME_DAY_MS = 86400000;
 export interface WorldState { game_time_ms: number; version: number; tick: number }
@@ -67,6 +68,7 @@ export class SimulationClock {
           .run(next.version, boundary, 'day_ended', JSON.stringify({ day }));
         this.db.prepare('INSERT INTO closed_days VALUES (?,?,?)').run(day, boundary, result.lastInsertRowid);
       }
+      advanceEconomy(this.db, next, previous);
       advanceCitizens(this.db, next, realElapsedMs, next.game_time_ms - previous.game_time_ms);
       this.db.prepare('UPDATE world SET game_time_ms = ?, version = ?, tick = ?, updated_at = ? WHERE id = 1')
         .run(next.game_time_ms, next.version, next.tick, new Date().toISOString());

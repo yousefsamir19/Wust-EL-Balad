@@ -2,6 +2,7 @@ import type { WorldDatabase } from '../db/index.js';
 import type { WorldState } from '../simulation/clock.js';
 import { entrance, findPath, tileKey, walkable } from '../simulation/navigation.js';
 import type { TilePoint, TownBuilding, VisibleCitizen } from '../../../shared/world.js';
+import { consumeMeal, economicArrival, economicChoice } from '../economy/actions.js';
 
 interface Needs { hunger: number; energy: number; social: number }
 interface Citizen extends TilePoint {
@@ -63,7 +64,8 @@ export function advanceCitizens(db: WorldDatabase, world: WorldState, realElapse
     const routine = db.prepare('SELECT * FROM citizen_routines WHERE citizen_id = ?').get(citizen.id) as Routine;
     const schedule = db.prepare('SELECT shift_start, shift_end FROM schedules WHERE citizen_id = ?').get(citizen.id) as Schedule;
     const needs = JSON.parse(citizen.needs) as Needs;
-    needs.hunger = clamp(needs.hunger + hours * (citizen.activity === 'eating' ? -240 : 8));
+    const eating = (citizen.activity === 'eating' || citizen.activity === 'hungry') && consumeMeal(db, world, citizen);
+    needs.hunger = clamp(needs.hunger + hours * (eating ? -240 : 8));
     needs.energy = clamp(needs.energy + hours * (citizen.activity === 'sleeping' ? 18 : citizen.activity === 'working' ? -6 : -3));
     needs.social = clamp(needs.social + hours * (citizen.activity === 'socializing' ? -120 : 5));
     citizen.mood = needs.hunger >= 75 ? 'Hungry' : needs.energy <= 20 ? 'Tired' : needs.social >= 75 ? 'Lonely' : 'Calm';
@@ -75,7 +77,7 @@ export function advanceCitizens(db: WorldDatabase, world: WorldState, realElapse
       (routine.goal_action === 'work' && !onShift) || (routine.goal_action === 'eat' && needs.hunger < 15) ||
       (routine.goal_action === 'socialize' && needs.social < 10);
     if (reconsider) {
-      const choice = chooseUtility(citizen, needs, minute, schedule);
+      const choice = economicChoice(db, world, citizen, chooseUtility(citizen, needs, minute, schedule));
       if (choice.action !== routine.goal_action || choice.targetId !== routine.target_building_id || citizen.activity === 'blocked') {
         routine.goal_action = choice.action;
         routine.target_building_id = choice.targetId;
@@ -108,7 +110,9 @@ export function advanceCitizens(db: WorldDatabase, world: WorldState, realElapse
     const arrived = !blocked && !!target && walkable(citizen, buildings) && path.length === 0 && Math.abs(citizen.x - target.door_x) + Math.abs(citizen.y - target.door_y) <= 2;
     if (arrived) {
       citizen.building_id = target!.id;
-      citizen.activity = { work: 'working', eat: 'eating', sleep: 'sleeping', socialize: 'socializing', idle: 'idle' }[routine.goal_action] ?? 'idle';
+      const activities: Record<string,string> = { work:citizen.workplace_id?'working':'job_seeking', eat:'eating', sleep:'sleeping', socialize:'socializing', idle:'idle', bank:'banking' };
+      citizen.activity = activities[routine.goal_action] ?? 'idle';
+      if (routine.goal_action === 'eat' && !consumeMeal(db, world, citizen)) citizen.activity = 'hungry';
       routine.movement_remainder = 0;
     } else if (path.length) citizen.activity = 'walking';
     else { citizen.activity = 'blocked'; blocked = true; routine.movement_remainder = 0; }
@@ -131,6 +135,7 @@ export function advanceCitizens(db: WorldDatabase, world: WorldState, realElapse
       .run(citizen.x, citizen.y, citizen.building_id, citizen.activity, JSON.stringify(needs), citizen.mood, thoughts, citizen.id);
     db.prepare(`UPDATE citizen_routines SET goal_action=?,target_building_id=?,path=?,next_decision_game_ms=?,movement_remainder=?,next_speech_game_ms=?,direction=? WHERE citizen_id=?`)
       .run(routine.goal_action, routine.target_building_id, JSON.stringify(path), routine.next_decision_game_ms, routine.movement_remainder, routine.next_speech_game_ms, routine.direction, citizen.id);
+    economicArrival(db, world, citizen.id);
     occupied.add(tileKey(citizen));
   }
 }

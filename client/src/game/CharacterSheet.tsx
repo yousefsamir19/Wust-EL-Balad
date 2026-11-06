@@ -19,7 +19,7 @@ export function CharacterSheet({ citizen, buildings, followId, onFollow, onTool 
   const location = buildings.find((building)=>building.id===citizen.buildingId)?.name ?? `Street (${citizen.x}, ${citizen.y})`;
   return <>
     <div className="character-heading"><CitizenPortrait citizen={citizen}/><h2>{citizen.name}</h2></div>
-    <dl className="character-facts"><dt>Job</dt><dd>{citizen.job}</dd><dt>Money</dt><dd>EGP {(citizen.money/100).toLocaleString('en-EG',{minimumFractionDigits:2,maximumFractionDigits:2})}</dd><dt>Mood</dt><dd>{citizen.mood}</dd><dt>Location</dt><dd>{location}</dd><dt>Activity</dt><dd>{citizen.activity}</dd></dl>
+    <dl className="character-facts"><dt>Job</dt><dd>{citizen.job}</dd><dt>Cash</dt><dd>EGP {(citizen.money/100).toLocaleString('en-EG',{minimumFractionDigits:2,maximumFractionDigits:2})}</dd><dt>Savings</dt><dd>EGP {(citizen.savings/100).toFixed(2)}</dd><dt>Debt</dt><dd>EGP {(citizen.debt/100).toFixed(2)}</dd><dt>Mood</dt><dd>{citizen.mood}</dd><dt>Location</dt><dd>{location}</dd><dt>Activity</dt><dd>{citizen.activity}</dd></dl>
     <h3>Current thought</h3><p className="thought">“{citizen.publicThought}”</p>
     <div className="needs">{Object.entries(citizen.needs).map(([name,value])=><label key={name}>{name}<meter min={0} max={100} value={value} aria-label={`${citizen.name} ${name}`}/></label>)}</div>
     <p className="quiet">Relationships and memories arrive in Task 10.</p>

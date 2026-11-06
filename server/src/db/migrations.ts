@@ -163,6 +163,33 @@ CREATE TABLE schedules (
   shift_start INTEGER NOT NULL CHECK (shift_start BETWEEN 0 AND 1439),
   shift_end INTEGER NOT NULL CHECK (shift_end BETWEEN 1 AND 1440)
 );
+` }, { version: 4, sql: `
+CREATE TABLE businesses (
+  id TEXT PRIMARY KEY REFERENCES buildings(id), owner_id TEXT REFERENCES citizens(id),
+  balance INTEGER NOT NULL CHECK(balance>=0), stock INTEGER NOT NULL CHECK(stock>=0),
+  wage INTEGER NOT NULL CHECK(wage>0), capacity INTEGER NOT NULL CHECK(capacity>0), job_title TEXT NOT NULL
+);
+CREATE TABLE system_wallets (id TEXT PRIMARY KEY, balance INTEGER NOT NULL CHECK(balance>=0));
+CREATE TABLE bank_accounts (citizen_id TEXT PRIMARY KEY REFERENCES citizens(id), balance INTEGER NOT NULL DEFAULT 0 CHECK(balance>=0));
+CREATE TABLE employment (
+  citizen_id TEXT PRIMARY KEY REFERENCES citizens(id), business_id TEXT REFERENCES businesses(id),
+  active INTEGER NOT NULL DEFAULT 1, work_day INTEGER NOT NULL, worked_ms INTEGER NOT NULL DEFAULT 0,
+  wage_settled INTEGER NOT NULL DEFAULT 0, missed_days INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE employment_changes (id TEXT PRIMARY KEY, citizen_id TEXT NOT NULL REFERENCES citizens(id), business_id TEXT REFERENCES businesses(id), event_id INTEGER NOT NULL REFERENCES events(id));
+CREATE TABLE debts (
+  id TEXT PRIMARY KEY, borrower_account TEXT NOT NULL, lender_account TEXT NOT NULL,
+  outstanding INTEGER NOT NULL CHECK(outstanding>=0), due_day INTEGER NOT NULL,
+  kind TEXT NOT NULL, default_reported INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE economic_state (
+  citizen_id TEXT PRIMARY KEY REFERENCES citizens(id), pantry INTEGER NOT NULL DEFAULT 2 CHECK(pantry>=0),
+  meal_until INTEGER NOT NULL DEFAULT 0, next_food_attempt INTEGER NOT NULL DEFAULT 0, next_bank_visit INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE economy_days (day INTEGER PRIMARY KEY);
+ALTER TABLE money_transactions ADD COLUMN from_account TEXT NOT NULL DEFAULT '';
+ALTER TABLE money_transactions ADD COLUMN to_account TEXT NOT NULL DEFAULT '';
+CREATE INDEX debts_borrower ON debts(borrower_account,outstanding);
 ` }];
 
 export function migrate(db: Database.Database) {

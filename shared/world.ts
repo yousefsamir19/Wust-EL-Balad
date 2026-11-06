@@ -11,4 +11,5 @@ export interface VisibleCitizen extends TilePoint {
   appearance: { hair: number; clothing: string; accessory: number };
   money: number; needs: { hunger: number; energy: number; social: number };
   publicThought: string;
+  savings: number; debt: number;
 }
