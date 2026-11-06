@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+:root { font-family: ui-monospace, monospace; color: #f4e4c6; background: #101d25; }
+.foundation { background: #152733; border: 4px solid #d6ac62; box-shadow: 8px 8px 0 #080f14; }
+.eyebrow { color: #e2b45f; text-transform: uppercase; letter-spacing: .12em; font-size: .8rem; }
+.status { display: inline-block; border: 2px solid #6e9d88; padding: .65rem 1rem; color: #b6e0c5; }
+footer { color: #acb8b6; font-size: .8rem; }
