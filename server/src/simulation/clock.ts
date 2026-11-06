@@ -14,6 +14,7 @@ export class SimulationClock {
   private readonly leaseMs: number;
   private timer?: ReturnType<typeof setInterval>;
   private stopped = false;
+  private readonly listeners = new Set<() => void>();
 
   constructor(private readonly db: WorldDatabase, private readonly options: Options = {}) {
     this.dayDurationHours = options.dayDurationHours ?? Number(process.env.DAY_DURATION_HOURS ?? 6);
@@ -32,6 +33,17 @@ export class SimulationClock {
     return this.db.prepare('SELECT game_time_ms, version, tick FROM world WHERE id = 1').get() as WorldState;
   }
 
+  subscribe(listener: () => void) {
+    this.listeners.add(listener);
+    return () => { this.listeners.delete(listener); };
+  }
+
+  private notify() {
+    for (const listener of this.listeners) {
+      try { listener(); } catch { console.error('A post-commit world subscriber failed.'); }
+    }
+  }
+
   private assertOwner() {
     if (this.stopped) throw new Error('Simulation is stopped');
     const lock = this.db.prepare('SELECT owner_id FROM simulation_lock WHERE id = 1').get() as { owner_id: string } | undefined;
@@ -41,7 +53,7 @@ export class SimulationClock {
 
   step(realElapsedMs: number): WorldState {
     if (!Number.isFinite(realElapsedMs) || realElapsedMs < 0) throw new Error('Elapsed time must be nonnegative and finite');
-    return this.db.transaction(() => {
+    const committed = this.db.transaction(() => {
       this.assertOwner();
       const previous = this.state();
       const next = { game_time_ms: previous.game_time_ms + Math.round(realElapsedMs * 24 / this.dayDurationHours), version: previous.version + 1, tick: previous.tick + 1 };
@@ -60,11 +72,14 @@ export class SimulationClock {
         .run(next.game_time_ms, next.version, next.tick, new Date().toISOString());
       return next;
     })();
+    this.notify();
+    return committed;
   }
 
   commitCommand<T>(id: string, action: (db: WorldDatabase, state: WorldState) => T): T {
     if (!id || id.length > 128) throw new Error('A command id is required');
-    return this.db.transaction(() => {
+    const beforeVersion = this.state().version;
+    const committed = this.db.transaction(() => {
       this.assertOwner();
       const saved = this.db.prepare('SELECT result FROM processed_commands WHERE id = ?').get(id) as { result: string } | undefined;
       if (saved) return JSON.parse(saved.result) as T;
@@ -77,6 +92,8 @@ export class SimulationClock {
       this.db.prepare('INSERT INTO processed_commands VALUES (?,?,?)').run(id, serialized, version);
       return result;
     })();
+    if (this.state().version !== beforeVersion) this.notify();
+    return committed;
   }
 
   start() {

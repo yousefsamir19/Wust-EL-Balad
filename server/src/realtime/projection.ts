@@ -1,0 +1,28 @@
+import type { WorldDatabase } from '../db/index.js';
+import type { VisibleCitizen, TownBuilding } from '../../../shared/world.js';
+import type { PublicEvent, WorldSnapshot } from '../../../shared/realtime.js';
+
+export function visibleCitizens(db: WorldDatabase): VisibleCitizen[] {
+  const rows = db.prepare(`SELECT c.id,c.name,c.job,c.x,c.y,c.mood,c.building_id AS buildingId,c.activity,c.appearance,r.direction
+    FROM citizens c JOIN citizen_routines r ON r.citizen_id = c.id ORDER BY c.id`).all() as (Omit<VisibleCitizen, 'appearance'> & { appearance: string })[];
+  return rows.map((row) => ({ ...row, appearance: JSON.parse(row.appearance) }));
+}
+export function publicEvents(db: WorldDatabase, afterId = 0, limit = 40): PublicEvent[] {
+  const rows = db.prepare(`SELECT id,game_time_ms AS gameTimeMs,type,actor_id AS actorId,target,amount,importance,details
+    FROM events WHERE visibility='public' AND id > ? ORDER BY id DESC LIMIT ?`).all(afterId, limit) as (PublicEvent & { details: string })[];
+  return rows.reverse().map(({ details, ...row }) => {
+    const content = JSON.parse(details) as { text?: unknown; activity?: unknown };
+    return { ...row, ...(typeof content.text === 'string' ? { text: content.text } : {}), ...(typeof content.activity === 'string' ? { activity: content.activity } : {}) };
+  });
+}
+export function projectWorld(db: WorldDatabase, playerCount: number): WorldSnapshot {
+  const state = db.prepare('SELECT game_time_ms,version,tick FROM world WHERE id=1').get() as { game_time_ms: number; version: number; tick: number };
+  const minute = state.game_time_ms % 86400000 / 60000;
+  return {
+    version: state.version, tick: state.tick, gameTimeMs: state.game_time_ms,
+    day: Math.floor(state.game_time_ms / 86400000) + 1, minute,
+    lighting: minute >= 1080 && minute < 1200 ? 'sunset' : minute < 360 || minute >= 1200 ? 'night' : 'day',
+    playerCount, citizens: visibleCitizens(db), buildings: db.prepare('SELECT * FROM buildings ORDER BY id').all() as TownBuilding[],
+    events: publicEvents(db),
+  };
+}

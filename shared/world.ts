@@ -6,4 +6,5 @@ export interface TownBuilding extends TilePoint {
 export interface VisibleCitizen extends TilePoint {
   id: string; name: string; job: string; mood: string; buildingId: string | null;
   activity: string; direction: 'up' | 'down' | 'left' | 'right';
+  appearance: { hair: number; clothing: string; accessory: number };
 }

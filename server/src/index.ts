@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { createApp } from './app.js';
 import { openWorld } from './db/index.js';
 import { SimulationClock } from './simulation/clock.js';
+import { attachRealtime } from './realtime/index.js';
 
 const port = Number(process.env.PORT ?? 3000);
 if (!Number.isInteger(port) || port < 1 || port > 65535) {
@@ -13,11 +14,13 @@ const server = createApp(undefined, db).listen(port, process.env.HOST ?? '0.0.0.
   console.log(`Wust El Balad listening on port ${port}`);
   clock.start();
 });
+const realtime = attachRealtime(server, db, clock);
 let closing = false;
 function shutdown(code: number) {
   if (closing) return;
   closing = true;
   clock.stop();
+  realtime.close();
   server.close(() => { db.close(); process.exit(code); });
   server.closeIdleConnections();
   setTimeout(() => { if (db.open) db.close(); process.exit(code); }, 5000).unref();

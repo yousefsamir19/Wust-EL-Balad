@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
     build: { outDir: '../dist/client', emptyOutDir: true },
     server: {
       host: '0.0.0.0', port: 5173, strictPort: true,
-      proxy: { '/api': `http://127.0.0.1:${port}` },
+      proxy: { '/api': `http://127.0.0.1:${port}`, '/socket.io': { target: `http://127.0.0.1:${port}`, ws: true } },
     },
   };
 });
