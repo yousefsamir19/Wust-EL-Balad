@@ -24,10 +24,12 @@ import { rumorsRouter } from './rumors/routes.js';
 import type { RumorService } from './rumors/service.js';
 import { catchUpRouter } from './catchup/index.js';
 import { leaderboardRouter,playerProfilesRouter } from './players/index.js';
+import { worldBackupRouter } from './db/backup.js';
 
 export function createApp(clientDirectory = resolve('dist/client'), database?: WorldDatabase, ai?:AiScheduler, aiSettings?:RuntimeAiSettings,services:{clock?:SimulationClock;interrogation?:InterrogationService;investigations?:InvestigationService;influence?:InfluenceService;rumors?:RumorService}={}) {
   const app = express();
   app.disable('x-powered-by');
+  app.use('/api/admin/world/restore', express.raw({ type: 'application/vnd.sqlite3', limit: '256mb' }));
   app.use(express.json({ limit: '16kb' }));
   app.get('/api/health', (_req, res) => {
     const health: HealthResponse = { status: 'ok', project: PROJECT };
@@ -36,6 +38,7 @@ export function createApp(clientDirectory = resolve('dist/client'), database?: W
   if (database) {
     app.use('/api', sameOrigin);
     app.use('/api/auth', authRouter(database));
+    app.use('/api/admin/world', worldBackupRouter(database));
     app.use('/api/world', worldRouter(database));
     app.use('/api/economy', economyRouter(database));
     app.use('/api/social', socialRouter(database));

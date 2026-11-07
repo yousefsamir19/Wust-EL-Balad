@@ -1,0 +1,14 @@
+services:
+  wust-el-balad:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    env_file:
+      - .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3000
+      DATABASE_URL: file:./data/world.db
+    volumes:
+      - ./data:/app/data
