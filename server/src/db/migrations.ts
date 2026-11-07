@@ -245,6 +245,8 @@ CREATE TABLE player_returns(player_id TEXT PRIMARY KEY REFERENCES players(id),fr
 CREATE TABLE player_reviewed_days(player_id TEXT NOT NULL REFERENCES players(id),day INTEGER NOT NULL,PRIMARY KEY(player_id,day));
 ` }];
 
+export const CURRENT_SCHEMA_VERSION = migrations[migrations.length - 1].version;
+
 export function migrate(db: Database.Database) {
   db.exec('CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)');
   for (const migration of migrations) {
